@@ -1,0 +1,223 @@
+{
+  "rating_summary": [
+    {
+      "game_key": "assets/flash/flight-of-the-hamsters-game.swf",
+      "sum": 5,
+      "count": 1,
+      "avg": 5.0
+    },
+    {
+      "game_key": "http://thatquiz.org/ca",
+      "sum": 4,
+      "count": 1,
+      "avg": 4.0
+    },
+    {
+      "game_key": "https://educaixa.org/microsites/kitscaixa_valores/cualidades_personales_autorretrato/contenidos/recursos_aux/index.html",
+      "sum": 3,
+      "count": 1,
+      "avg": 3.0
+    },
+    {
+      "game_key": "https://eduhoot.edutictac.es/",
+      "sum": 5,
+      "count": 1,
+      "avg": 5.0
+    },
+    {
+      "game_key": "https://edutictac.es/inici/flash/aulademusica24aranas.swf",
+      "sum": 5,
+      "count": 1,
+      "avg": 5.0
+    },
+    {
+      "game_key": "https://sasogu.github.io/edumusic/",
+      "sum": 5,
+      "count": 1,
+      "avg": 5.0
+    },
+    {
+      "game_key": "https://scratch.mit.edu/explore/projects/all",
+      "sum": 5,
+      "count": 1,
+      "avg": 5.0
+    },
+    {
+      "game_key": "https://scratch.mit.edu/projects/3053421/fullscreen/",
+      "sum": 5,
+      "count": 1,
+      "avg": 5.0
+    },
+    {
+      "game_key": "https://www.aprendomusica.com/",
+      "sum": 5,
+      "count": 1,
+      "avg": 5.0
+    },
+    {
+      "game_key": "https://www.comodicequedijo.com/juegos/?ref=cta-homepage",
+      "sum": 4,
+      "count": 1,
+      "avg": 4.0
+    },
+    {
+      "game_key": "https://www.incredibox.com/demo/",
+      "sum": 2,
+      "count": 1,
+      "avg": 2.0
+    }
+  ],
+  "broken_reports": [
+    {
+      "game_key": "assets/flash/310349-pico-2006_202104.swf",
+      "count": 1,
+      "admin_reported": true
+    },
+    {
+      "game_key": "assets/flash/anime_summer_girls.swf",
+      "count": 1,
+      "admin_reported": true
+    },
+    {
+      "game_key": "assets/flash/coaster_kb14.swf",
+      "count": 1,
+      "admin_reported": true
+    },
+    {
+      "game_key": "assets/flash/comic-con-2008-poster.swf",
+      "count": 1,
+      "admin_reported": true
+    },
+    {
+      "game_key": "assets/flash/csi_1.swf",
+      "count": 1,
+      "admin_reported": true
+    },
+    {
+      "game_key": "assets/flash/csi_2.swf",
+      "count": 1,
+      "admin_reported": true
+    },
+    {
+      "game_key": "assets/flash/darnell-plays-with-fire.swf",
+      "count": 1,
+      "admin_reported": true
+    },
+    {
+      "game_key": "assets/flash/disco_fiasco.swf",
+      "count": 1,
+      "admin_reported": true
+    },
+    {
+      "game_key": "assets/flash/dreamontournamentedition.swf",
+      "count": 1,
+      "admin_reported": true
+    },
+    {
+      "game_key": "assets/flash/dress_up_akemi_konai.swf",
+      "count": 1,
+      "admin_reported": true
+    },
+    {
+      "game_key": "assets/flash/flight-of-the-hamsters-game.swf",
+      "count": 1,
+      "admin_reported": false
+    },
+    {
+      "game_key": "assets/flash/girlsaloudillstandbyyoutrap-doorflashgame.swf",
+      "count": 1,
+      "admin_reported": true
+    },
+    {
+      "game_key": "assets/flash/goffikmakeover.swf",
+      "count": 1,
+      "admin_reported": true
+    },
+    {
+      "game_key": "assets/flash/jogos-do-discovery-kids.swf",
+      "count": 1,
+      "admin_reported": true
+    },
+    {
+      "game_key": "assets/flash/mightykidsmeal_flash.swf",
+      "count": 1,
+      "admin_reported": true
+    },
+    {
+      "game_key": "assets/flash/newgrounds-rumble.swf",
+      "count": 1,
+      "admin_reported": true
+    },
+    {
+      "game_key": "assets/flash/one_20220302.swf",
+      "count": 1,
+      "admin_reported": true
+    },
+    {
+      "game_key": "assets/flash/pico-school-april-fools-2021.swf",
+      "count": 1,
+      "admin_reported": true
+    },
+    {
+      "game_key": "assets/flash/picos-school-april-fools-2021.swf",
+      "count": 4,
+      "admin_reported": false
+    },
+    {
+      "game_key": "assets/flash/pou-clean-school.swf",
+      "count": 2,
+      "admin_reported": true
+    },
+    {
+      "game_key": "assets/flash/ruff-bb-smoothie-6.swf",
+      "count": 1,
+      "admin_reported": true
+    },
+    {
+      "game_key": "assets/flash/school-uniform-designer_202303.swf",
+      "count": 1,
+      "admin_reported": true
+    },
+    {
+      "game_key": "assets/flash/wardrobe_202101.swf",
+      "count": 1,
+      "admin_reported": false
+    },
+    {
+      "game_key": "https://edutictac.es/blog/bibliojocs/memoria-visual/",
+      "count": 1,
+      "admin_reported": true
+    },
+    {
+      "game_key": "https://mapasinteractivos.didactalia.net/comunidad/mapasflashinteractivos",
+      "count": 1,
+      "admin_reported": false
+    },
+    {
+      "game_key": "https://www.grinchhourofcode.com/game.html",
+      "count": 2,
+      "admin_reported": true
+    },
+    {
+      "game_key": "https://www.vedoque.com/juegos/juego.php?j=cueva-murcielagos&l=es",
+      "count": 1,
+      "admin_reported": true
+    },
+    {
+      "game_key": "https://www.vedoque.com/juegos/puntospeque.html",
+      "count": 1,
+      "admin_reported": true
+    }
+  ],
+  "submissions": [
+    {
+      "id": "ZBGnhfhdPbocrjhIi0fH",
+      "title": "Blockly Edutictac",
+      "url": "https://blockly.edutictac.es/",
+      "notes": "Joc per aprendre a programar amb blocs",
+      "area": "Informatica",
+      "language": "Català/Valencià",
+      "submitted_by": "Samuel Soriano"
+    }
+  ]
+}
