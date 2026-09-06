@@ -1,6 +1,6 @@
-# Bibliojocs API
+# Recursos API
 
-API REST (FastAPI + SQLite) para la PWA de Bibliojocs. Sustituye a Firebase
+API REST (FastAPI + SQLite) para la PWA de Banc de recursos. Sustituye a Firebase
 (Firestore + Authentication, proyecto `edubibliojocs`) desde 2026-09.
 
 ## Endpoints
@@ -15,18 +15,18 @@ API REST (FastAPI + SQLite) para la PWA de Bibliojocs. Sustituye a Firebase
 - `POST /api/admin/login` `{ token }`
 
 Identidad anónima por cookie firmada (HMAC, sin Google). El modo admin se
-activa con `POST /api/admin/login` usando `BIBLIOJOCS_ADMIN_TOKEN`.
+activa con `POST /api/admin/login` usando `RECURSOS_ADMIN_TOKEN`.
 
 ## Despliegue
 
-Código en `/opt/bibliojocs-api`, servicio systemd `bibliojocs-api.service`
-(uvicorn `127.0.0.1:8004`), expuesto en `bibliojocs.edutictac.es/api/`.
-Variables de entorno en `/etc/bibliojocs-api.env`:
+Código en `/opt/recursos-api`, servicio systemd `recursos-api.service`
+(uvicorn `127.0.0.1:8004`), expuesto en `recursos.edutictac.es/api/`.
+Variables de entorno en `/etc/recursos-api.env`:
 
 ```
-BIBLIOJOCS_SECRET=...
-BIBLIOJOCS_ADMIN_TOKEN=...
-BIBLIOJOCS_DB=/var/lib/bibliojocs-api/bibliojocs.db
+RECURSOS_SECRET=...
+RECURSOS_ADMIN_TOKEN=...
+RECURSOS_DB=/var/lib/recursos-api/recursos.db
 ```
 
 El token de admin se guarda en `pass bibliojocs/admin-token`.
