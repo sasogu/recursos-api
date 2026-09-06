@@ -35,7 +35,7 @@ from pydantic import BaseModel
 DB_PATH = os.environ.get("RECURSOS_DB", "/var/lib/recursos-api/recursos.db")
 SESSION_SECRET = os.environ.get("RECURSOS_SECRET", "")
 ADMIN_TOKEN = os.environ.get("RECURSOS_ADMIN_TOKEN", "")
-SESSION_COOKIE = "bibliojocs_session"
+SESSION_COOKIE = "recursos_session"
 
 RATE_WINDOW = 60
 RATE_MAX = 60

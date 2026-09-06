@@ -29,7 +29,7 @@ RECURSOS_ADMIN_TOKEN=...
 RECURSOS_DB=/var/lib/recursos-api/recursos.db
 ```
 
-El token de admin se guarda en `pass bibliojocs/admin-token`.
+El token de admin se guarda en `pass recursos/admin-token`.
 
 ## Datos migrados
 
