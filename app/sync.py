@@ -49,6 +49,9 @@ def run_sync(provider: ResourceProvider) -> SyncRun:
                     if prev is None:
                         conn.execute(_insert_sql(), row)
                         run.created += 1
+                        # Marcar como visto: la fuente puede repetir un external_id
+                        # dentro del mismo run (p. ej. paginación con solapamiento).
+                        existing[resource.external_id] = dict(row)
                     else:
                         prev_resource = Resource.from_row(prev)
                         if _signature(resource) != _signature(prev_resource):
