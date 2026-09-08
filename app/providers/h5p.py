@@ -28,11 +28,14 @@ class H5POERHubProvider(ResourceProvider):
     def discover(self) -> Iterator[Resource]:
         fetched = 0
         offset = 0
+        total: int | None = None
         while True:
             data = get_json(
                 f"{config.H5P_HUB_API}/contents",
                 params={"from": offset, "size": PAGE_SIZE},
             )
+            if total is None and isinstance(data, dict):
+                total = int(data.get("total", 0) or 0)
             items = data.get("items", []) if isinstance(data, dict) else []
             if not items:
                 break
@@ -41,9 +44,9 @@ class H5POERHubProvider(ResourceProvider):
                 fetched += 1
                 if self.max_items is not None and fetched >= self.max_items:
                     return
-            if len(items) < PAGE_SIZE:
-                break
             offset += len(items)
+            if total is not None and offset >= total:
+                break
 
     def normalize(self, raw: dict) -> Resource:
         hub_id = raw.get("id", "")
