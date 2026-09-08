@@ -202,6 +202,18 @@ def delete_session_cookie(response: Response) -> None:
     )
 
 
+def describe_oidc_error(exc: Exception) -> str:
+    parts = [exc.__class__.__name__]
+    for attr in ("error", "description"):
+        value = getattr(exc, attr, None)
+        if value:
+            parts.append(f"{attr}={str(value)[:160]}")
+    message = str(exc)
+    if message and "code=" not in message and "state=" not in message:
+        parts.append(f"message={message[:160]}")
+    return " ".join(parts)
+
+
 def get_session(request: Request) -> tuple[str, bool]:
     """Devuelve (uid, admin). Crea identidad anónima si no hay cookie válida."""
     cookie = request.cookies.get(SESSION_COOKIE)
@@ -586,7 +598,7 @@ def auth_callback(request: Request, code: str = "", state: str = "") -> Redirect
     try:
         info = oidc.handle_callback(state, code, state_cookie)
     except Exception as exc:  # noqa: BLE001
-        logger.warning("OIDC callback failed: %s", exc.__class__.__name__)
+        logger.warning("OIDC callback failed: %s", describe_oidc_error(exc))
         raise HTTPException(status_code=401, detail="oauth callback failed") from exc
 
     uid = f"oidc:{info['sub']}"

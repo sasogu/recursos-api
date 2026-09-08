@@ -16,11 +16,13 @@ import secrets
 
 import httpx
 from authlib.integrations.httpx_client import OAuth2Client
+from authlib.jose import JsonWebKey, jwt
 
 OIDC_CLIENT_ID = os.environ.get("OIDC_CLIENT_ID", "")
 OIDC_CLIENT_SECRET = os.environ.get("OIDC_CLIENT_SECRET", "")
 OIDC_ISSUER = os.environ.get("OIDC_ISSUER", "")
 OIDC_REDIRECT_URI = os.environ.get("OIDC_REDIRECT_URI", "")
+OIDC_SCOPE = os.environ.get("OIDC_SCOPE", "openid")
 OIDC_ADMIN_EMAILS = {
     e.strip().lower()
     for e in os.environ.get("OIDC_ADMIN_EMAILS", "").split(",")
@@ -31,6 +33,7 @@ SESSION_SECRET = os.environ.get("RECURSOS_SECRET", "")
 OIDC_STATE_COOKIE = "recursos_oidc_state"
 
 _META: dict | None = None
+_JWKS = None
 
 
 def enabled() -> bool:
@@ -49,12 +52,22 @@ def _metadata() -> dict:
     return _META
 
 
+def _jwks(meta: dict):
+    global _JWKS
+    if _JWKS is None:
+        resp = httpx.get(meta["jwks_uri"], timeout=20, headers={"User-Agent": "EduTicTac-Resources/0.1"})
+        resp.raise_for_status()
+        _JWKS = JsonWebKey.import_key_set(resp.json())
+    return _JWKS
+
+
 def _client() -> OAuth2Client:
     return OAuth2Client(
         OIDC_CLIENT_ID,
         OIDC_CLIENT_SECRET,
         redirect_uri=OIDC_REDIRECT_URI,
-        scope="openid profile email",
+        scope=OIDC_SCOPE,
+        token_endpoint_auth_method="client_secret_post",
     )
 
 
@@ -98,6 +111,24 @@ def build_login_url() -> tuple[str, str]:
     return uri, cookie
 
 
+def _userinfo_from_id_token(token: dict, meta: dict) -> dict:
+    id_token = token.get("id_token") if isinstance(token, dict) else None
+    if not id_token:
+        return {}
+    claims = jwt.decode(
+        id_token,
+        _jwks(meta),
+        claims_options={
+            "iss": {"essential": True, "value": meta["issuer"]},
+            "aud": {"essential": True, "value": OIDC_CLIENT_ID},
+            "sub": {"essential": True},
+            "exp": {"essential": True},
+        },
+    )
+    claims.validate(leeway=60)
+    return dict(claims)
+
+
 def handle_callback(state: str, code: str, state_cookie: str | None) -> dict:
     saved = _decode(state_cookie)
     if not saved or saved.get("state") != state:
@@ -105,14 +136,25 @@ def handle_callback(state: str, code: str, state_cookie: str | None) -> dict:
 
     meta = _metadata()
     client = _client()
-    client.fetch_token(
+    token = client.fetch_token(
         meta["token_endpoint"],
         grant_type="authorization_code",
         code=code,
         redirect_uri=OIDC_REDIRECT_URI,
         code_verifier=saved.get("code_verifier", ""),
     )
-    userinfo = client.get(meta["userinfo_endpoint"]).json()
+    userinfo = _userinfo_from_id_token(token, meta)
+    if "sub" not in userinfo:
+        resp = client.get(meta["userinfo_endpoint"])
+        resp.raise_for_status()
+        try:
+            userinfo = resp.json()
+        except ValueError as exc:
+            raise ValueError("userinfo returned non-json response") from exc
+        if not isinstance(userinfo, dict):
+            raise ValueError("userinfo returned invalid response")
+        if "sub" not in userinfo and isinstance(token, dict) and isinstance(token.get("userinfo"), dict):
+            userinfo = token["userinfo"]
     sub = str(userinfo.get("sub", ""))
     if not sub:
         raise ValueError("missing subject")
