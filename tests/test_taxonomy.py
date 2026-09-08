@@ -56,3 +56,13 @@ def test_eduhoot_stage():
     assert taxonomy.eduhoot_stage(["infantil"]) == "Infantil"
     assert taxonomy.eduhoot_stage(["sexto"]) == "Primaria"
     assert taxonomy.eduhoot_stage(["fortnite"]) == ""
+
+
+def test_eduhoot_language():
+    assert taxonomy.eduhoot_language("català") == ["Català/Valencià"]
+    assert taxonomy.eduhoot_language("castellano") == ["Castellano"]
+    assert taxonomy.eduhoot_language("ingles") == ["Ingles"]
+    assert taxonomy.eduhoot_language("francés") == ["Frances"]
+    assert taxonomy.eduhoot_language("") == []
+    # Idioma no reconocido: se conserva tal cual (no se inventa).
+    assert taxonomy.eduhoot_language("gallego") == ["gallego"]

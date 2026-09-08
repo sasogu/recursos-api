@@ -221,3 +221,34 @@ def eduhoot_levels(tags: list[str]) -> list[str]:
     if not stage:
         return []
     return [stage]
+
+
+EDUHOOT_LANG = {
+    "catala": "Català/Valencià",
+    "valencia": "Català/Valencià",
+    "valenciano": "Català/Valencià",
+    "catalan": "Català/Valencià",
+    "ca": "Català/Valencià",
+    "castellano": "Castellano",
+    "espanol": "Castellano",
+    "es": "Castellano",
+    "ingles": "Ingles",
+    "english": "Ingles",
+    "en": "Ingles",
+    "frances": "Frances",
+    "french": "Frances",
+    "fr": "Frances",
+    "aranes": "Aranes",
+    "oc": "Aranes",
+}
+
+
+def eduhoot_language(raw: str) -> list[str]:
+    """Normaliza el idioma declarado por un quiz de EduHoot (string libre)."""
+    if not raw:
+        return []
+    norm = normalize_tag(raw)
+    mapped = EDUHOOT_LANG.get(norm)
+    if mapped:
+        return [mapped]
+    return [str(raw).strip()]

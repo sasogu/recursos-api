@@ -37,15 +37,18 @@ class EduHootProvider(ResourceProvider):
         solo_url = f"{config.EDUHOOT_BASE_URL}/solo/?id={quiz_id}"
 
         thumbnail = cover if isinstance(cover, str) and cover.startswith("http") else ""
+        language_raw = raw.get("language", "") or ""
+        license_raw = raw.get("license", "") or ""
 
         return Resource(
             provider=self.name,
             external_id=str(quiz_id),
             title=name,
+            description=raw.get("description", "") or "",
             author=raw.get("ownerNickname", "") or "",
-            license="",
-            license_known=False,
-            language=[],
+            license=license_raw,
+            license_known=bool(license_raw),
+            language=taxonomy.eduhoot_language(language_raw),
             resource_type="quiz",
             format=self.format,
             subject=taxonomy.eduhoot_subject(tags),
