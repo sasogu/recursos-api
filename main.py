@@ -12,13 +12,17 @@ Endpoints:
   POST /api/reports            { game_key }
   GET  /api/submissions
   POST /api/submissions        { title, url, notes, area, language, name? }
-  POST /api/admin/login        { token }
+  GET  /api/auth/login
+  GET  /api/auth/callback
+  GET  /api/auth/logout
+  GET  /api/auth/me
 """
 
 import base64
 import hashlib
 import hmac
 import json
+import logging
 import os
 import re
 import secrets
@@ -39,8 +43,8 @@ from app.models import Resource
 
 DB_PATH = os.environ.get("RECURSOS_DB", "/var/lib/recursos-api/recursos.db")
 SESSION_SECRET = os.environ.get("RECURSOS_SECRET", "")
-ADMIN_TOKEN = os.environ.get("RECURSOS_ADMIN_TOKEN", "")
 SESSION_COOKIE = "recursos_session"
+COOKIE_SECURE = os.environ.get("RECURSOS_COOKIE_SECURE", "1").lower() not in {"0", "false", "no"}
 
 RATE_WINDOW = 60
 RATE_MAX = 60
@@ -48,6 +52,7 @@ _rate_lock = threading.Lock()
 _rate: dict[str, deque] = defaultdict(deque)
 
 app = FastAPI(title="Bibliojocs API")
+logger = logging.getLogger("recursos_api")
 
 
 def _ensure_dir() -> None:
@@ -152,6 +157,8 @@ init_index_schema()
 # --- Sesión firmada (cookie) ---
 
 def _sign(data: str) -> str:
+    if not SESSION_SECRET:
+        raise RuntimeError("RECURSOS_SECRET is required")
     return hmac.new(SESSION_SECRET.encode(), data.encode(), hashlib.sha256).hexdigest()
 
 
@@ -172,6 +179,27 @@ def parse_session(cookie: str | None) -> dict | None:
         return json.loads(base64.urlsafe_b64decode(data.encode()).decode())
     except Exception:
         return None
+
+
+def set_session_cookie(response: Response, value: str, max_age: int) -> None:
+    response.set_cookie(
+        SESSION_COOKIE,
+        value,
+        httponly=True,
+        secure=COOKIE_SECURE,
+        samesite="lax",
+        path="/",
+        max_age=max_age,
+    )
+
+
+def delete_session_cookie(response: Response) -> None:
+    response.delete_cookie(
+        SESSION_COOKIE,
+        path="/",
+        secure=COOKIE_SECURE,
+        samesite="lax",
+    )
 
 
 def get_session(request: Request) -> tuple[str, bool]:
@@ -217,10 +245,6 @@ class SubmissionIn(BaseModel):
     area: str = "General"
     language: str = ""
     name: str = ""
-
-
-class AdminLoginIn(BaseModel):
-    token: str
 
 
 # --- Endpoints ---
@@ -345,14 +369,15 @@ def report_broken(payload: GameKeyIn, request: Request, response: Response) -> d
         raise HTTPException(status_code=400, detail="invalid game_key")
 
     with get_conn() as conn:
-        conn.execute(
+        cur = conn.execute(
             "INSERT OR IGNORE INTO reports (user_id, game_key, reported_at) VALUES (?, ?, ?)",
             (uid, game_key, datetime.now(timezone.utc).isoformat()),
         )
+        inserted_report = cur.rowcount > 0
         row = conn.execute(
             "SELECT count, admin_reported FROM broken_reports WHERE game_key = ?", (game_key,)
         ).fetchone()
-        count = (row["count"] if row else 0) + 1
+        count = (row["count"] if row else 0) + (1 if inserted_report else 0)
         admin_reported = bool(row["admin_reported"]) if row else False
         if admin:
             admin_reported = True
@@ -411,20 +436,6 @@ def add_submission(payload: SubmissionIn, request: Request, response: Response) 
     }
 
 
-@app.post("/api/admin/login")
-def admin_login(payload: AdminLoginIn, request: Request, response: Response) -> dict:
-    if not ADMIN_TOKEN:
-        raise HTTPException(status_code=503, detail="admin not configured")
-    if not hmac.compare_digest(payload.token.encode(), ADMIN_TOKEN.encode()):
-        raise HTTPException(status_code=401, detail="invalid token")
-    uid, _ = _ensure_uid(request, response)
-    response.set_cookie(
-        SESSION_COOKIE, make_session(uid, admin=True),
-        httponly=True, samesite="lax", path="/", max_age=60 * 60 * 24 * 30,
-    )
-    return {"ok": True, "admin": True}
-
-
 def _ensure_uid(request: Request, response: Response) -> tuple[str, bool]:
     """Garantiza identidad anónima: devuelve (uid, admin) y fija la cookie si faltaba."""
     cookie = request.cookies.get(SESSION_COOKIE)
@@ -432,10 +443,7 @@ def _ensure_uid(request: Request, response: Response) -> tuple[str, bool]:
     if sess and sess.get("uid"):
         return sess["uid"], bool(sess.get("admin"))
     uid = secrets.token_hex(16)
-    response.set_cookie(
-        SESSION_COOKIE, make_session(uid, admin=False),
-        httponly=True, samesite="lax", path="/", max_age=60 * 60 * 24 * 365,
-    )
+    set_session_cookie(response, make_session(uid, admin=False), 60 * 60 * 24 * 365)
     return uid, False
 
 
@@ -563,7 +571,7 @@ def auth_login() -> RedirectResponse:
     response = RedirectResponse(url)
     response.set_cookie(
         oidc.OIDC_STATE_COOKIE, state_cookie,
-        httponly=True, samesite="lax", path="/api/auth", max_age=600,
+        httponly=True, secure=COOKIE_SECURE, samesite="lax", path="/api/auth", max_age=600,
     )
     return response
 
@@ -578,23 +586,26 @@ def auth_callback(request: Request, code: str = "", state: str = "") -> Redirect
     try:
         info = oidc.handle_callback(state, code, state_cookie)
     except Exception as exc:  # noqa: BLE001
+        logger.warning("OIDC callback failed: %s", exc.__class__.__name__)
         raise HTTPException(status_code=401, detail="oauth callback failed") from exc
 
     uid = f"oidc:{info['sub']}"
     admin = bool(info["admin"])
     response = RedirectResponse("/")
-    response.set_cookie(
-        SESSION_COOKIE, make_session(uid, admin=admin),
-        httponly=True, samesite="lax", path="/", max_age=60 * 60 * 24 * 30,
+    set_session_cookie(response, make_session(uid, admin=admin), 60 * 60 * 24 * 30)
+    response.delete_cookie(
+        oidc.OIDC_STATE_COOKIE,
+        path="/api/auth",
+        secure=COOKIE_SECURE,
+        samesite="lax",
     )
-    response.delete_cookie(oidc.OIDC_STATE_COOKIE, path="/api/auth")
     return response
 
 
 @app.get("/api/auth/logout")
 def auth_logout() -> RedirectResponse:
     response = RedirectResponse("/")
-    response.delete_cookie(SESSION_COOKIE, path="/")
+    delete_session_cookie(response)
     return response
 
 

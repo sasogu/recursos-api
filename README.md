@@ -12,12 +12,15 @@ API REST (FastAPI + SQLite) para la PWA de Banc de recursos. Sustituye a Firebas
 - `POST /api/reports` `{ game_key }` (actividad rota)
 - `GET  /api/submissions`
 - `POST /api/submissions` `{ title, url, notes, area, language, name }`
-- `POST /api/admin/login` `{ token }`
+- `GET  /api/auth/login` — inicia sesión con Authentik
+- `GET  /api/auth/logout` — cierra sesión local
+- `GET  /api/auth/me` — estado de sesión OIDC
 - `GET  /api/resources` — índice federado de recursos (búsqueda + filtros)
 - `GET  /api/admin/sources` — estado de las fuentes de recursos (requiere admin)
 
 Identidad anónima por cookie firmada (HMAC, sin Google). El modo admin se
-activa con `POST /api/admin/login` usando `RECURSOS_ADMIN_TOKEN`.
+activa al iniciar sesión con Authentik si el correo OIDC figura en
+`OIDC_ADMIN_EMAILS`.
 
 ## Despliegue
 
@@ -27,11 +30,16 @@ Variables de entorno en `/etc/recursos-api.env`:
 
 ```
 RECURSOS_SECRET=...
-RECURSOS_ADMIN_TOKEN=...
 RECURSOS_DB=/var/lib/recursos-api/recursos.db
+OIDC_ISSUER=https://id.edutictac.es/application/o/<slug>/
+OIDC_CLIENT_ID=...
+OIDC_CLIENT_SECRET=...
+OIDC_REDIRECT_URI=https://recursos.edutictac.es/api/auth/callback
+OIDC_ADMIN_EMAILS=...
 ```
 
-El token de admin se guarda en `pass recursos/admin-token`.
+Los secretos de OIDC y sesión se guardan fuera del repositorio, en el fichero de
+entorno del servicio.
 
 ## Datos migrados
 

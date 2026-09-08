@@ -35,7 +35,7 @@ _META: dict | None = None
 
 def enabled() -> bool:
     return bool(
-        OIDC_CLIENT_ID and OIDC_CLIENT_SECRET and OIDC_ISSUER and OIDC_REDIRECT_URI
+        SESSION_SECRET and OIDC_CLIENT_ID and OIDC_CLIENT_SECRET and OIDC_ISSUER and OIDC_REDIRECT_URI
     )
 
 
@@ -107,11 +107,15 @@ def handle_callback(state: str, code: str, state_cookie: str | None) -> dict:
     client = _client()
     token = client.fetch_token(
         meta["token_endpoint"],
+        grant_type="authorization_code",
         code=code,
+        redirect_uri=OIDC_REDIRECT_URI,
         code_verifier=saved.get("code_verifier", ""),
     )
-    userinfo = client.get(meta["userinfo_endpoint"]).json()
+    userinfo = client.get(meta["userinfo_endpoint"], token=token).json()
     sub = str(userinfo.get("sub", ""))
+    if not sub:
+        raise ValueError("missing subject")
     email = (userinfo.get("email") or "").lower()
     return {
         "sub": sub,
