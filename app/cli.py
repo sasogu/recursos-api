@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 
 from .db import get_conn, init_index_schema
+from .export import export_catalog
 from .models import Resource
 from .providers import get_provider, get_providers
 from .providers.scorm import SCORMProvider
@@ -129,6 +130,20 @@ def cmd_sources(_args) -> int:
     return 0
 
 
+def cmd_export(args) -> int:
+    result = export_catalog(
+        games_path=args.games,
+        out_dir=args.out_dir,
+        home_size=args.home_size,
+        exclude_legacy_jclic=not args.keep_legacy_jclic,
+    )
+    print(f"Catálogo unificado generado: {result['total']} recursos")
+    print(f"  home: {result['home']}")
+    for provider, count in sorted(result["by_provider"].items()):
+        print(f"  {provider}: {count}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="recursos", description="Índice federado de REA")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -144,6 +159,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_sources = sub.add_parser("sources", help="estado de las fuentes")
     p_sources.set_defaults(func=cmd_sources)
+
+    p_export = sub.add_parser("export-catalog", help="genera games.json unificado para el frontend")
+    p_export.add_argument("--games", required=True, help="ruta a data/games.json (legacy)")
+    p_export.add_argument("--out-dir", required=True, help="directorio de salida (data/)")
+    p_export.add_argument("--home-size", type=int, default=48)
+    p_export.add_argument("--keep-legacy-jclic", action="store_true",
+                          help="no excluir los jclic legacy de clic.xtec.cat/projects/")
+    p_export.set_defaults(func=cmd_export)
 
     return parser
 
