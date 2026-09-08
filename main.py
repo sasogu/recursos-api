@@ -16,6 +16,7 @@ Endpoints:
   GET  /api/auth/callback
   GET  /api/auth/logout
   GET  /api/auth/me
+  POST /api/admin/resources/hide { game_key }
 """
 
 import base64
@@ -214,16 +215,19 @@ def describe_oidc_error(exc: Exception) -> str:
     return " ".join(parts)
 
 
+def session_admin(uid: str, cookie_admin: bool) -> bool:
+    if uid.startswith("oidc:") and oidc.is_admin_sub(uid[len("oidc:"):]):
+        return True
+    return cookie_admin
+
+
 def get_session(request: Request) -> tuple[str, bool]:
     """Devuelve (uid, admin). Crea identidad anónima si no hay cookie válida."""
     cookie = request.cookies.get(SESSION_COOKIE)
     sess = parse_session(cookie)
     if sess and sess.get("uid"):
         uid = sess["uid"]
-        admin = bool(sess.get("admin"))
-        if uid.startswith("oidc:") and oidc.is_admin_sub(uid[len("oidc:"):]):
-            admin = True
-        return uid, admin
+        return uid, session_admin(uid, bool(sess.get("admin")))
     return "", False
 
 
@@ -405,6 +409,30 @@ def report_broken(payload: GameKeyIn, request: Request, response: Response) -> d
     return {"count": count, "admin_reported": admin_reported}
 
 
+@app.post("/api/admin/resources/hide")
+def admin_hide_resource(payload: GameKeyIn, request: Request, response: Response) -> dict:
+    if rate_limited(_client_ip(request)):
+        raise HTTPException(status_code=429, detail="too many requests")
+    _, admin = _ensure_uid(request, response)
+    if not admin:
+        raise HTTPException(status_code=403, detail="admin required")
+    game_key = payload.game_key.strip()
+    if not game_key:
+        raise HTTPException(status_code=400, detail="invalid game_key")
+
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT count FROM broken_reports WHERE game_key = ?", (game_key,)
+        ).fetchone()
+        count = row["count"] if row else 0
+        conn.execute(
+            "INSERT INTO broken_reports (game_key, count, admin_reported, updated_at) VALUES (?, ?, 1, ?) "
+            "ON CONFLICT(game_key) DO UPDATE SET admin_reported=1, updated_at=excluded.updated_at",
+            (game_key, count, datetime.now(timezone.utc).isoformat()),
+        )
+    return {"game_key": game_key, "count": count, "admin_reported": True}
+
+
 @app.get("/api/submissions")
 def list_submissions() -> list[dict]:
     with get_conn() as conn:
@@ -457,7 +485,8 @@ def _ensure_uid(request: Request, response: Response) -> tuple[str, bool]:
     cookie = request.cookies.get(SESSION_COOKIE)
     sess = parse_session(cookie)
     if sess and sess.get("uid"):
-        return sess["uid"], bool(sess.get("admin"))
+        uid = sess["uid"]
+        return uid, session_admin(uid, bool(sess.get("admin")))
     uid = secrets.token_hex(16)
     set_session_cookie(response, make_session(uid, admin=False), 60 * 60 * 24 * 365)
     return uid, False

@@ -15,6 +15,7 @@ API REST (FastAPI + SQLite) para la PWA de Banc de recursos. Sustituye a Firebas
 - `GET  /api/auth/login` — inicia sesión con Authentik
 - `GET  /api/auth/logout` — cierra sesión local
 - `GET  /api/auth/me` — estado de sesión OIDC
+- `POST /api/admin/resources/hide` `{ game_key }` — oculta un recurso del listado público
 - `GET  /api/resources` — índice federado de recursos (búsqueda + filtros)
 - `GET  /api/admin/sources` — estado de las fuentes de recursos (requiere admin)
 
