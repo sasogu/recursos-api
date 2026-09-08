@@ -206,7 +206,13 @@ EDUHOOT_NON_EDUCATIONAL_TAGS = {
 }
 
 # Fragmentos de nombre (normalizados) de quizzes claramente no educativos.
-EDUHOOT_NON_EDUCATIONAL_NAME_FRAGMENTS = ("black mirror", "ready player one")
+EDUHOOT_NON_EDUCATIONAL_NAME_FRAGMENTS = (
+    "black mirror",
+    "ready player one",
+    "clash royale",
+    "roblox",
+    "marvel",
+)
 
 
 def jclic_language(codes: list[str]) -> list[str]:

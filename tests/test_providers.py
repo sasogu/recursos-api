@@ -50,6 +50,9 @@ def test_eduhoot_non_educational_blocked():
     assert p._is_educational({"name": "Spiderman", "tags": ["peliculas-y-actores"]}) is False
     assert p._is_educational({"name": "Hang the DJ (Black Mirror)", "tags": []}) is False
     assert p._is_educational({"name": "Ready Player One", "tags": []}) is False
+    assert p._is_educational({"name": "Roblox", "tags": ["primaria", "valencia"]}) is False
+    assert p._is_educational({"name": "Clash Royale", "tags": ["espanol"]}) is False
+    assert p._is_educational({"name": "Marvel", "tags": ["espanol"]}) is False
 
 
 def test_eduhoot_educational_kept():
