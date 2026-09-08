@@ -19,6 +19,7 @@ from defusedxml import ElementTree as DET
 from .. import config
 from ..httpclient import get_bytes
 from ..models import Resource
+from ..taxonomy import language_codes
 from .base import ResourceProvider
 
 _SCHEMAVERSION_1_2 = "1.2"
@@ -210,7 +211,7 @@ class SCORMProvider(ResourceProvider):
             author=author,
             license="",
             license_known=False,
-            language=[language] if language else [],
+            language=language_codes([language]),
             resource_type="scorm",
             format=self.format,
             subject="",

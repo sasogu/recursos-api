@@ -39,7 +39,7 @@ AREAS = [
     "Seguridad Digital",
     "Tecnología",
 ]
-LANGUAGES = ["Aranes", "Castellano", "Català/Valencià", "Ingles", "Frances"]
+LANGUAGES = ["ca", "es", "en", "fr", "oc"]
 
 
 def normalize_tag(value: str) -> str:
@@ -54,15 +54,48 @@ def normalize_tag(value: str) -> str:
     return s
 
 
-# --- Mapeo JClic (projects.json) ---
+# --- Idioma canónico (códigos ISO 639-1) ---
 
-JCLIC_LANG = {
-    "ca": "Català/Valencià",
-    "es": "Castellano",
-    "en": "Ingles",
-    "fr": "Frances",
-    "oc": "Aranes",
+# Alias (normalizados con normalize_tag) → código ISO canónico.
+LANGUAGE_ALIASES: dict[str, str] = {
+    # Códigos ISO y variantes.
+    "ca": "ca", "cat": "ca", "va": "ca", "val": "ca", "vlc": "ca",
+    "es": "es", "spa": "es", "es mx": "es",
+    "en": "en", "eng": "en", "en gb": "en", "en us": "en",
+    "fr": "fr", "fra": "fr", "fre": "fr",
+    "oc": "oc", "oci": "oc", "arn": "oc",
+    # Nombres (legacy / históricos).
+    "catala/valencia": "ca", "catala": "ca", "catalan": "ca",
+    "valencia": "ca", "valenciano": "ca",
+    "castellano": "es", "espanol": "es", "spanish": "es",
+    "ingles": "en", "english": "en",
+    "frances": "fr", "french": "fr",
+    "aranes": "oc", "occita": "oc",
 }
+
+
+def language_code(value: str) -> str:
+    """Normaliza un valor de idioma (código ISO o nombre) a su código canónico.
+
+    Devuelve "" si no se reconoce (los idiomas fuera del vocabulario se descartan).
+    """
+    v = str(value or "").strip()
+    if not v:
+        return ""
+    return LANGUAGE_ALIASES.get(normalize_tag(v), "")
+
+
+def language_codes(values: list[str]) -> list[str]:
+    """Normaliza una lista de valores de idioma a códigos canónicos únicos."""
+    result: list[str] = []
+    for value in values or []:
+        code = language_code(value)
+        if code and code not in result:
+            result.append(code)
+    return result
+
+
+# --- Mapeo JClic (projects.json) ---
 
 JCLIC_LEVEL = {
     "INF": "Infantil",
@@ -157,14 +190,27 @@ EDUHOOT_PRIMARY_COURSE_TAGS = {
     "6 primaria", "sexto primaria",
 }
 
+# Tags (normalizados) que indican contenido de ocio/cultura pop, no REA curricular.
+EDUHOOT_NON_EDUCATIONAL_TAGS = {
+    "actualidad",
+    "cantantes",
+    "peliculas y actores",
+    "pelicula los chicos del coro",
+    "videojuego fortnite",
+    "twice kpop preguntas",
+    "kimetsu no yaiba lunas sup",
+    "minecraft",
+    "roblox",
+    "clash royale",
+    "elx",
+}
+
+# Fragmentos de nombre (normalizados) de quizzes claramente no educativos.
+EDUHOOT_NON_EDUCATIONAL_NAME_FRAGMENTS = ("black mirror", "ready player one")
+
 
 def jclic_language(codes: list[str]) -> list[str]:
-    result = []
-    for code in codes or []:
-        mapped = JCLIC_LANG.get(code, "")
-        if mapped and mapped not in result:
-            result.append(mapped)
-    return result
+    return language_codes(codes)
 
 
 def jclic_levels(codes: list[str]) -> list[str]:
@@ -223,32 +269,6 @@ def eduhoot_levels(tags: list[str]) -> list[str]:
     return [stage]
 
 
-EDUHOOT_LANG = {
-    "catala": "Català/Valencià",
-    "valencia": "Català/Valencià",
-    "valenciano": "Català/Valencià",
-    "catalan": "Català/Valencià",
-    "ca": "Català/Valencià",
-    "castellano": "Castellano",
-    "espanol": "Castellano",
-    "es": "Castellano",
-    "ingles": "Ingles",
-    "english": "Ingles",
-    "en": "Ingles",
-    "frances": "Frances",
-    "french": "Frances",
-    "fr": "Frances",
-    "aranes": "Aranes",
-    "oc": "Aranes",
-}
-
-
 def eduhoot_language(raw: str) -> list[str]:
     """Normaliza el idioma declarado por un quiz de EduHoot (string libre)."""
-    if not raw:
-        return []
-    norm = normalize_tag(raw)
-    mapped = EDUHOOT_LANG.get(norm)
-    if mapped:
-        return [mapped]
-    return [str(raw).strip()]
+    return language_codes([raw])

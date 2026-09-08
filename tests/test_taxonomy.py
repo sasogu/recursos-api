@@ -8,9 +8,9 @@ from app import taxonomy  # noqa: E402
 
 
 def test_jclic_language_maps_known_codes():
-    assert taxonomy.jclic_language(["ca", "es"]) == ["Català/Valencià", "Castellano"]
-    assert taxonomy.jclic_language(["en"]) == ["Ingles"]
-    assert taxonomy.jclic_language(["oc"]) == ["Aranes"]
+    assert taxonomy.jclic_language(["ca", "es"]) == ["ca", "es"]
+    assert taxonomy.jclic_language(["en"]) == ["en"]
+    assert taxonomy.jclic_language(["oc"]) == ["oc"]
 
 
 def test_jclic_language_ignores_unknown():
@@ -59,10 +59,16 @@ def test_eduhoot_stage():
 
 
 def test_eduhoot_language():
-    assert taxonomy.eduhoot_language("català") == ["Català/Valencià"]
-    assert taxonomy.eduhoot_language("castellano") == ["Castellano"]
-    assert taxonomy.eduhoot_language("ingles") == ["Ingles"]
-    assert taxonomy.eduhoot_language("francés") == ["Frances"]
+    assert taxonomy.eduhoot_language("català") == ["ca"]
+    assert taxonomy.eduhoot_language("castellano") == ["es"]
+    assert taxonomy.eduhoot_language("ingles") == ["en"]
+    assert taxonomy.eduhoot_language("francés") == ["fr"]
     assert taxonomy.eduhoot_language("") == []
-    # Idioma no reconocido: se conserva tal cual (no se inventa).
-    assert taxonomy.eduhoot_language("gallego") == ["gallego"]
+    # Idioma no reconocido: se descarta (vocabulario cerrado a códigos ISO).
+    assert taxonomy.eduhoot_language("gallego") == []
+
+
+def test_language_codes_normalizes_mixed_values():
+    assert taxonomy.language_codes(["Castellano", "es"]) == ["es"]
+    assert taxonomy.language_codes(["Català/Valencià", "Inglés", "Ingles"]) == ["ca", "en"]
+    assert taxonomy.language_codes(["", "de", None]) == []

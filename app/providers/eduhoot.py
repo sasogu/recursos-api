@@ -27,7 +27,20 @@ class EduHootProvider(ResourceProvider):
         if not isinstance(data, list):
             raise ValueError("public-quizzes no es una lista")
         for raw in data:
+            if not self._is_educational(raw):
+                continue
             yield self.normalize(raw)
+
+    def _is_educational(self, raw: dict) -> bool:
+        """Descarta quizzes de ocio/cultura pop (tags o nombres en blocklist)."""
+        name = taxonomy.normalize_tag(raw.get("name", "") or "")
+        for fragment in taxonomy.EDUHOOT_NON_EDUCATIONAL_NAME_FRAGMENTS:
+            if fragment in name:
+                return False
+        for tag in raw.get("tags", []) or []:
+            if taxonomy.normalize_tag(tag) in taxonomy.EDUHOOT_NON_EDUCATIONAL_TAGS:
+                return False
+        return True
 
     def normalize(self, raw: dict) -> Resource:
         quiz_id = raw.get("id", "")

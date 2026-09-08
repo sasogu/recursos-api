@@ -11,6 +11,7 @@ import json
 from typing import Iterator
 
 from ..models import Resource
+from ..taxonomy import language_codes
 from .base import ResourceProvider
 
 
@@ -64,7 +65,7 @@ class LegacyProvider(ResourceProvider):
             author="",
             license="",
             license_known=False,
-            language=[str(l) for l in languages],
+            language=language_codes(languages),
             resource_type="flash" if is_flash else "html5",
             format="flash" if is_flash else "html5",
             subject=raw.get("area", "") or "General",

@@ -3,18 +3,58 @@
 Endpoint público NO documentado oficialmente: /v1/contents devuelve metadatos
 completos (título, licencia, disciplinas, nivel, icono, preview, descargas).
 Paginación con `from` + `size`; filtros `search`, `text`, `disciplines[]`.
+
+Filtro de calidad: solo se indexan los recursos en idioma es/ca y con un rango
+de edad escolar (3-16, extendido a 18 para bachillerato). El hub es
+mayoritariamente contenido universitario/adulto en ruso/alemán; sin este filtro
+diluye el banco.
 """
 from __future__ import annotations
 
+import re
 from typing import Iterator
 
-from .. import config
+from .. import config, taxonomy
 from ..httpclient import get_json
 from ..models import Resource
 from .base import ResourceProvider
 
 PAGE_SIZE = 50
 H5P_PREVIEW_BASE = "https://hub-api.h5p.org"
+
+# Idiomas que se indexan (vocabulario del banco; el resto se descarta).
+ELIGIBLE_LANGS = {"ca", "es"}
+# Rango de edad escolar: empieza como máximo en 16 y termina como máximo en 18.
+MAX_START_AGE = 16
+MAX_SCHOOL_AGE = 18
+
+
+def _parse_age(age: str) -> tuple[int | None, int | None]:
+    """Interpreta el campo `age` del hub: 'N', 'N-M' o 'N-'. Devuelve (min, max)."""
+    age = (age or "").strip()
+    if not age:
+        return None, None
+    m = re.fullmatch(r"(\d+)\s*-\s*(\d*)", age)
+    if m:
+        lo = int(m.group(1))
+        hi = int(m.group(2)) if m.group(2) else None
+        return lo, hi
+    if age.isdigit():
+        n = int(age)
+        return n, n
+    return None, None
+
+
+def _age_is_school(age: str) -> bool:
+    """True si el rango de edad corresponde a público escolar (no adulto)."""
+    lo, hi = _parse_age(age)
+    if lo is None:
+        return False
+    if lo > MAX_START_AGE:
+        return False
+    if hi is None:
+        return True
+    return hi <= MAX_SCHOOL_AGE
 
 
 class H5POERHubProvider(ResourceProvider):
@@ -40,6 +80,8 @@ class H5POERHubProvider(ResourceProvider):
             if not items:
                 break
             for raw in items:
+                if not self._is_eligible(raw):
+                    continue
                 yield self.normalize(raw)
                 fetched += 1
                 if self.max_items is not None and fetched >= self.max_items:
@@ -47,6 +89,13 @@ class H5POERHubProvider(ResourceProvider):
             offset += len(items)
             if total is not None and offset >= total:
                 break
+
+    def _is_eligible(self, raw: dict) -> bool:
+        """Filtra por idioma (es/ca) y etapa escolar (age 3-16/18)."""
+        language = raw.get("language", "") or ""
+        if not (set(taxonomy.language_codes([language])) & ELIGIBLE_LANGS):
+            return False
+        return _age_is_school(raw.get("age", "") or "")
 
     def normalize(self, raw: dict) -> Resource:
         hub_id = raw.get("id", "")
@@ -57,7 +106,7 @@ class H5POERHubProvider(ResourceProvider):
         language = raw.get("language", "") or ""
 
         subject = _map_discipline(disciplines)
-        stage = _map_level(raw.get("level", "") or "", raw.get("age", "") or "")
+        stage = _map_level(raw.get("age", "") or "")
 
         return Resource(
             provider=self.name,
@@ -67,7 +116,7 @@ class H5POERHubProvider(ResourceProvider):
             author=publisher.get("name", "") or raw.get("owner", ""),
             license=license_info.get("id", "") or "",
             license_known=bool(license_info.get("id")),
-            language=[language] if language else [],
+            language=taxonomy.language_codes([language]),
             resource_type=raw.get("contentType", "") or raw.get("content_type", ""),
             format=self.format,
             subject=subject,
@@ -104,13 +153,14 @@ def _map_discipline(disciplines: list[str]) -> str:
     return "General"
 
 
-def _map_level(level: str, age: str) -> str:
-    age = (age or "").lower()
-    level = (level or "").lower()
-    if any(k in age for k in ("0-6", "3-6", "4-6", "preschool", "kindergarten")):
+def _map_level(age: str) -> str:
+    """Etapa educativa a partir del rango de edad escolar."""
+    lo, hi = _parse_age(age)
+    if lo is None:
+        return ""
+    hi = hi if hi is not None else lo
+    if hi <= 6:
         return "Infantil"
-    if "beginner" in level or any(k in age for k in ("6-", "7-", "8-", "9-", "10-", "11-")):
-        return "Primaria"
-    if "intermediate" in level or "advanced" in level or any(k in age for k in ("12-", "13-", "14-", "15-", "16-", "17-", "18")):
+    if lo >= 12:
         return "Secundaria"
-    return ""
+    return "Primaria"
