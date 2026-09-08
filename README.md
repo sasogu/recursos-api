@@ -13,6 +13,8 @@ API REST (FastAPI + SQLite) para la PWA de Banc de recursos. Sustituye a Firebas
 - `GET  /api/submissions`
 - `POST /api/submissions` `{ title, url, notes, area, language, name }`
 - `POST /api/admin/login` `{ token }`
+- `GET  /api/resources` — índice federado de recursos (búsqueda + filtros)
+- `GET  /api/admin/sources` — estado de las fuentes de recursos (requiere admin)
 
 Identidad anónima por cookie firmada (HMAC, sin Google). El modo admin se
 activa con `POST /api/admin/login` usando `RECURSOS_ADMIN_TOKEN`.
@@ -40,3 +42,26 @@ la primera inicialización de la base de datos (si la tabla está vacía).
 ## Licencia
 
 GNU Affero General Public License v3.0 (AGPL-3.0).
+
+## Índice federado de recursos (en desarrollo)
+
+Además de favoritos/valoraciones, este backend aloja el **índice federado de
+recursos educativos abiertos** que alimentará `recursos.edutictac.es`.
+
+- Proveedores: `jclic`, `h5p`, `scorm`, `eduhoot` (paquete `app/providers/`).
+- Modelo común `Resource` + `SyncRun` (SQLite, tablas `resources` y `sync_runs`).
+- CLI de sincronización:
+
+```bash
+python -m app.cli sync jclic|h5p|scorm|eduhoot|all
+python -m app.cli sync scorm --url https://.../paquete.zip
+python -m app.cli stats
+python -m app.cli sources
+```
+
+- Búsqueda unificada en `GET /api/resources` con filtros (`q`, `provider`,
+  `format`, `subject`, `stage`, `language`, `license`, `license_known`).
+- Documentación completa y fuentes verificadas: ver
+  `docs/resource-indexers.md` en el repositorio del frontend (`sasogu/recursos`).
+
+Tests: `python -m pytest tests/` (requiere `httpx`, `defusedxml`, `pytest`).

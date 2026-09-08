@@ -32,6 +32,9 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException, Request, Response
 from pydantic import BaseModel
 
+from app.db import init_index_schema
+from app.models import Resource
+
 DB_PATH = os.environ.get("RECURSOS_DB", "/var/lib/recursos-api/recursos.db")
 SESSION_SECRET = os.environ.get("RECURSOS_SECRET", "")
 ADMIN_TOKEN = os.environ.get("RECURSOS_ADMIN_TOKEN", "")
@@ -141,6 +144,7 @@ def _seed(conn: sqlite3.Connection) -> None:
 
 
 init_db()
+init_index_schema()
 
 
 # --- Sesión firmada (cookie) ---
@@ -431,3 +435,117 @@ def _ensure_uid(request: Request, response: Response) -> tuple[str, bool]:
         httponly=True, samesite="lax", path="/", max_age=60 * 60 * 24 * 365,
     )
     return uid, False
+
+
+# --- Índice federado de recursos (búsqueda unificada) ---
+
+def _norm(s: str) -> str:
+    return re.sub(r"[\u0300-\u036f]", "", s or "").lower()
+
+
+@app.get("/api/resources")
+def list_resources(
+    q: str = "",
+    provider: str = "",
+    format: str = "",
+    subject: str = "",
+    stage: str = "",
+    language: str = "",
+    license: str = "",
+    license_known: bool | None = None,
+    limit: int = 48,
+    offset: int = 0,
+) -> dict:
+    limit = max(1, min(limit, 200))
+    offset = max(0, offset)
+
+    where = ["active = 1"]
+    params: list = []
+
+    if provider:
+        where.append("provider = ?")
+        params.append(provider)
+    if format:
+        where.append("format = ?")
+        params.append(format)
+    if subject:
+        where.append("subject = ?")
+        params.append(subject)
+    if stage:
+        where.append("educational_stage = ?")
+        params.append(stage)
+    if language:
+        where.append("language LIKE ?")
+        params.append(f'%"{language}"%')
+    if license:
+        where.append("license = ?")
+        params.append(license)
+    if license_known is not None:
+        where.append("license_known = ?")
+        params.append(1 if license_known else 0)
+
+    term = _norm(q).strip()
+    if term:
+        where.append(
+            "(lower(title) LIKE ? OR lower(COALESCE(title_ca,'')) LIKE ? "
+            "OR lower(COALESCE(description,'')) LIKE ? OR lower(COALESCE(description_ca,'')) LIKE ? "
+            "OR lower(COALESCE(author,'')) LIKE ? OR lower(tags) LIKE ? OR lower(external_id) LIKE ?)"
+        )
+        like = f"%{term}%"
+        params.extend([like, like, like, like, like, like, like])
+
+    where_sql = " WHERE " + " AND ".join(where)
+
+    with get_conn() as conn:
+        total = conn.execute(
+            f"SELECT COUNT(*) AS n FROM resources{where_sql}", params
+        ).fetchone()["n"]
+        rows = conn.execute(
+            f"SELECT * FROM resources{where_sql} ORDER BY title LIMIT ? OFFSET ?",
+            params + [limit, offset],
+        ).fetchall()
+
+    return {
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+        "items": [Resource.from_row(r).to_dict() for r in rows],
+    }
+
+
+@app.get("/api/admin/sources")
+def admin_sources(request: Request) -> dict:
+    uid, admin = get_session(request)
+    if not admin:
+        raise HTTPException(status_code=403, detail="admin required")
+    with get_conn() as conn:
+        counts = {
+            r["provider"]: r["n"]
+            for r in conn.execute(
+                "SELECT provider, COUNT(*) AS n FROM resources WHERE active = 1 GROUP BY provider"
+            )
+        }
+        last = {}
+        for r in conn.execute(
+            "SELECT * FROM sync_runs WHERE id IN (SELECT MAX(id) FROM sync_runs GROUP BY provider)"
+        ):
+            last[r["provider"]] = {
+                "status": r["status"],
+                "fetched": r["fetched"],
+                "created": r["created"],
+                "updated": r["updated"],
+                "unchanged": r["unchanged"],
+                "errors": r["errors"],
+                "started_at": r["started_at"],
+                "finished_at": r["finished_at"],
+            }
+    return {
+        "providers": [
+            {
+                "provider": p,
+                "resources": counts.get(p, 0),
+                "last_sync": last.get(p),
+            }
+            for p in sorted(counts)
+        ]
+    }
