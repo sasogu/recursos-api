@@ -105,14 +105,14 @@ def handle_callback(state: str, code: str, state_cookie: str | None) -> dict:
 
     meta = _metadata()
     client = _client()
-    token = client.fetch_token(
+    client.fetch_token(
         meta["token_endpoint"],
         grant_type="authorization_code",
         code=code,
         redirect_uri=OIDC_REDIRECT_URI,
         code_verifier=saved.get("code_verifier", ""),
     )
-    userinfo = client.get(meta["userinfo_endpoint"], token=token).json()
+    userinfo = client.get(meta["userinfo_endpoint"]).json()
     sub = str(userinfo.get("sub", ""))
     if not sub:
         raise ValueError("missing subject")
