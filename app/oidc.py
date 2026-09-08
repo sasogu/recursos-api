@@ -2,8 +2,8 @@
 
 Flujo authorization code + PKCE (authlib). El usuario logueado obtiene una
 identidad real (`oidc:<sub>`); los visitantes siguen usando la cookie anónima.
-El correo de los docentes/admin se compara contra OIDC_ADMIN_EMAILS para marcar
-el rol admin (sin que el correo viaje a ningún servicio externo).
+El rol admin se marca por `OIDC_ADMIN_SUBS` o, si Authentik entrega email, por
+`OIDC_ADMIN_EMAILS`.
 """
 from __future__ import annotations
 
@@ -27,6 +27,11 @@ OIDC_ADMIN_EMAILS = {
     e.strip().lower()
     for e in os.environ.get("OIDC_ADMIN_EMAILS", "").split(",")
     if e.strip()
+}
+OIDC_ADMIN_SUBS = {
+    s.strip()
+    for s in os.environ.get("OIDC_ADMIN_SUBS", "").split(",")
+    if s.strip()
 }
 
 SESSION_SECRET = os.environ.get("RECURSOS_SECRET", "")
@@ -69,6 +74,10 @@ def _client() -> OAuth2Client:
         scope=OIDC_SCOPE,
         token_endpoint_auth_method="client_secret_post",
     )
+
+
+def is_admin_sub(sub: str) -> bool:
+    return sub in OIDC_ADMIN_SUBS
 
 
 def _sign(data: str) -> str:
@@ -163,5 +172,5 @@ def handle_callback(state: str, code: str, state_cookie: str | None) -> dict:
         "sub": sub,
         "email": email,
         "name": userinfo.get("name", "") or userinfo.get("preferred_username", ""),
-        "admin": email in OIDC_ADMIN_EMAILS,
+        "admin": sub in OIDC_ADMIN_SUBS or email in OIDC_ADMIN_EMAILS,
     }

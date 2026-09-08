@@ -219,7 +219,11 @@ def get_session(request: Request) -> tuple[str, bool]:
     cookie = request.cookies.get(SESSION_COOKIE)
     sess = parse_session(cookie)
     if sess and sess.get("uid"):
-        return sess["uid"], bool(sess.get("admin"))
+        uid = sess["uid"]
+        admin = bool(sess.get("admin"))
+        if uid.startswith("oidc:") and oidc.is_admin_sub(uid[len("oidc:"):]):
+            admin = True
+        return uid, admin
     return "", False
 
 
@@ -624,8 +628,11 @@ def auth_logout() -> RedirectResponse:
 @app.get("/api/auth/me")
 def auth_me(request: Request) -> dict:
     uid, admin = get_session(request)
+    logged_in = bool(uid.startswith("oidc:"))
+    sub = uid[len("oidc:"):] if logged_in else ""
     return {
-        "logged_in": bool(uid.startswith("oidc:")),
+        "logged_in": logged_in,
         "admin": admin,
-        "sub": uid[len("oidc:"):] if uid.startswith("oidc:") else "",
+        "sub": sub,
+        "admin_sub": sub,
     }
