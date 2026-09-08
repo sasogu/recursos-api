@@ -30,8 +30,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
+from app import oidc
 from app.db import init_index_schema
 from app.models import Resource
 
@@ -548,4 +550,59 @@ def admin_sources(request: Request) -> dict:
             }
             for p in sorted(counts)
         ]
+    }
+
+
+# --- OIDC (Authentik / EduTicTac Commons) ---
+
+@app.get("/api/auth/login")
+def auth_login() -> RedirectResponse:
+    if not oidc.enabled():
+        raise HTTPException(status_code=503, detail="oidc not configured")
+    url, state_cookie = oidc.build_login_url()
+    response = RedirectResponse(url)
+    response.set_cookie(
+        oidc.OIDC_STATE_COOKIE, state_cookie,
+        httponly=True, samesite="lax", path="/api/auth", max_age=600,
+    )
+    return response
+
+
+@app.get("/api/auth/callback")
+def auth_callback(request: Request, code: str = "", state: str = "") -> RedirectResponse:
+    if not oidc.enabled():
+        raise HTTPException(status_code=503, detail="oidc not configured")
+    if not code or not state:
+        raise HTTPException(status_code=400, detail="missing code or state")
+    state_cookie = request.cookies.get(oidc.OIDC_STATE_COOKIE)
+    try:
+        info = oidc.handle_callback(state, code, state_cookie)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=401, detail="oauth callback failed") from exc
+
+    uid = f"oidc:{info['sub']}"
+    admin = bool(info["admin"])
+    response = RedirectResponse("/")
+    response.set_cookie(
+        SESSION_COOKIE, make_session(uid, admin=admin),
+        httponly=True, samesite="lax", path="/", max_age=60 * 60 * 24 * 30,
+    )
+    response.delete_cookie(oidc.OIDC_STATE_COOKIE, path="/api/auth")
+    return response
+
+
+@app.get("/api/auth/logout")
+def auth_logout() -> RedirectResponse:
+    response = RedirectResponse("/")
+    response.delete_cookie(SESSION_COOKIE, path="/")
+    return response
+
+
+@app.get("/api/auth/me")
+def auth_me(request: Request) -> dict:
+    uid, admin = get_session(request)
+    return {
+        "logged_in": bool(uid.startswith("oidc:")),
+        "admin": admin,
+        "sub": uid[len("oidc:"):] if uid.startswith("oidc:") else "",
     }
