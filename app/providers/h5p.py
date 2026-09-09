@@ -4,10 +4,10 @@ Endpoint público NO documentado oficialmente: /v1/contents devuelve metadatos
 completos (título, licencia, disciplinas, nivel, icono, preview, descargas).
 Paginación con `from` + `size`; filtros `search`, `text`, `disciplines[]`.
 
-Filtro de calidad: solo se indexan los recursos en idioma es/ca/en/fr y con un
-rango de edad escolar (3-16, extendido a 18 para bachillerato). El hub es
-mayoritariamente contenido universitario/adulto en ruso/alemán; sin este filtro
-diluye el banco.
+Filtro de calidad: se indexan los recursos en idiomas de la UE (+ catalán/valenciano
+y aranés) y con edad escolar o sin edad declarada. Se descartan los idiomas fuera
+del vocabulario (ruso, chino, turco...) y el contenido claramente adulto (edad
+mínima ≥ 18).
 """
 from __future__ import annotations
 
@@ -22,11 +22,8 @@ from .base import ResourceProvider
 PAGE_SIZE = 50
 H5P_PREVIEW_BASE = "https://hub-api.h5p.org"
 
-# Idiomas que se indexan (vocabulario del banco; el resto se descarta).
-ELIGIBLE_LANGS = {"ca", "es", "en", "fr"}
-# Rango de edad escolar: empieza como máximo en 16 y termina como máximo en 18.
-MAX_START_AGE = 16
-MAX_SCHOOL_AGE = 18
+# Edad mínima a partir de la cual un recurso se considera contenido adulto.
+ADULT_AGE = 18
 
 
 def _parse_age(age: str) -> tuple[int | None, int | None]:
@@ -45,16 +42,12 @@ def _parse_age(age: str) -> tuple[int | None, int | None]:
     return None, None
 
 
-def _age_is_school(age: str) -> bool:
-    """True si el rango de edad corresponde a público escolar (no adulto)."""
-    lo, hi = _parse_age(age)
+def _age_is_eligible(age: str) -> bool:
+    """Acepta recursos sin edad o no-adultos; descarta los claramente adultos."""
+    lo, _ = _parse_age(age)
     if lo is None:
-        return False
-    if lo > MAX_START_AGE:
-        return False
-    if hi is None:
         return True
-    return hi <= MAX_SCHOOL_AGE
+    return lo < ADULT_AGE
 
 
 class H5POERHubProvider(ResourceProvider):
@@ -91,11 +84,11 @@ class H5POERHubProvider(ResourceProvider):
                 break
 
     def _is_eligible(self, raw: dict) -> bool:
-        """Filtra por idioma (es/ca) y etapa escolar (age 3-16/18)."""
+        """Filtra por idioma (UE + ca/oc) y descarta contenido claramente adulto."""
         language = raw.get("language", "") or ""
-        if not (set(taxonomy.language_codes([language])) & ELIGIBLE_LANGS):
+        if not taxonomy.language_codes([language]):
             return False
-        return _age_is_school(raw.get("age", "") or "")
+        return _age_is_eligible(raw.get("age", "") or "")
 
     def normalize(self, raw: dict) -> Resource:
         hub_id = raw.get("id", "")

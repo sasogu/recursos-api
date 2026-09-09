@@ -39,7 +39,13 @@ AREAS = [
     "Seguridad Digital",
     "Tecnología",
 ]
-LANGUAGES = ["ca", "es", "en", "fr", "oc"]
+# Idiomas de la Unión Europea + catalán/valenciano y aranés (cooficiales).
+LANGUAGES = [
+    "bg", "hr", "cs", "da", "nl", "en", "et", "fi", "fr", "de",
+    "el", "hu", "ga", "it", "lv", "lt", "mt", "pl", "pt", "ro",
+    "sk", "sl", "es", "sv", "ca", "oc",
+]
+LANGUAGE_SET = set(LANGUAGES)
 
 
 def normalize_tag(value: str) -> str:
@@ -77,12 +83,17 @@ LANGUAGE_ALIASES: dict[str, str] = {
 def language_code(value: str) -> str:
     """Normaliza un valor de idioma (código ISO o nombre) a su código canónico.
 
-    Devuelve "" si no se reconoce (los idiomas fuera del vocabulario se descartan).
+    Acepta nombres largos, variantes regionales (es-mx, pt-br, en-gb...) y
+    códigos ISO de la UE. Devuelve "" si está fuera del vocabulario.
     """
     v = str(value or "").strip()
     if not v:
         return ""
-    return LANGUAGE_ALIASES.get(normalize_tag(v), "")
+    key = normalize_tag(v)
+    if key in LANGUAGE_ALIASES:
+        return LANGUAGE_ALIASES[key]
+    base = key.split()[0]
+    return base if base in LANGUAGE_SET else ""
 
 
 def language_codes(values: list[str]) -> list[str]:

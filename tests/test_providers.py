@@ -5,7 +5,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.providers.eduhoot import EduHootProvider  # noqa: E402
-from app.providers.h5p import H5POERHubProvider, _age_is_school, _parse_age  # noqa: E402
+from app.providers.h5p import H5POERHubProvider, _age_is_eligible, _parse_age  # noqa: E402
 
 
 def test_parse_age():
@@ -16,33 +16,32 @@ def test_parse_age():
     assert _parse_age("preschool") == (None, None)
 
 
-def test_age_is_school():
-    assert _age_is_school("4-7") is True
-    assert _age_is_school("8-11") is True
-    assert _age_is_school("12-16") is True
-    assert _age_is_school("12-18") is True
-    assert _age_is_school("10") is True
-    assert _age_is_school("11-") is True
-    # Adulto/universitario → fuera del banco.
-    assert _age_is_school("18-99") is False
-    assert _age_is_school("20-40") is False
-    assert _age_is_school("25-65") is False
-    assert _age_is_school("18") is False
-    assert _age_is_school("") is False
+def test_age_is_eligible():
+    # Sin edad → se acepta (relajado).
+    assert _age_is_eligible("") is True
+    # Escolar y juvenil.
+    assert _age_is_eligible("4-7") is True
+    assert _age_is_eligible("12-16") is True
+    assert _age_is_eligible("12-18") is True
+    assert _age_is_eligible("5-20") is True
+    assert _age_is_eligible("17") is True
+    # Adulto explícito (mín >= 18) → fuera del banco.
+    assert _age_is_eligible("18") is False
+    assert _age_is_eligible("18-99") is False
+    assert _age_is_eligible("20-40") is False
+    assert _age_is_eligible("25-65") is False
 
 
-def test_h5p_eligibility_language_and_stage():
+def test_h5p_eligibility():
     p = H5POERHubProvider()
     assert p._is_eligible({"language": "es", "age": "12-16"}) is True
-    assert p._is_eligible({"language": "es-mx", "age": "8-11"}) is True
-    assert p._is_eligible({"language": "ca", "age": "6-8"}) is True
-    assert p._is_eligible({"language": "en", "age": "12-16"}) is True
-    assert p._is_eligible({"language": "fr", "age": "8-11"}) is True
-    # Idioma no apto (ruso/alemán) o etapa adulta.
-    assert p._is_eligible({"language": "ru", "age": "12-16"}) is False
-    assert p._is_eligible({"language": "de", "age": "12-16"}) is False
+    assert p._is_eligible({"language": "de", "age": "8-11"}) is True
+    assert p._is_eligible({"language": "de", "age": ""}) is True  # sin edad
+    assert p._is_eligible({"language": "pt-br", "age": "10"}) is True
+    # Adulto explícito o idioma fuera de la UE.
     assert p._is_eligible({"language": "es", "age": "18-99"}) is False
-    assert p._is_eligible({"language": "es", "age": ""}) is False
+    assert p._is_eligible({"language": "ru", "age": "12-16"}) is False
+    assert p._is_eligible({"language": "ru", "age": ""}) is False
 
 
 def test_eduhoot_non_educational_blocked():

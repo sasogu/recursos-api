@@ -71,4 +71,13 @@ def test_eduhoot_language():
 def test_language_codes_normalizes_mixed_values():
     assert taxonomy.language_codes(["Castellano", "es"]) == ["es"]
     assert taxonomy.language_codes(["Català/Valencià", "Inglés", "Ingles"]) == ["ca", "en"]
-    assert taxonomy.language_codes(["", "de", None]) == []
+    assert taxonomy.language_codes(["", "ru", None]) == []  # ruso fuera del vocabulario
+
+
+def test_language_codes_eu_and_regional_variants():
+    assert taxonomy.language_codes(["de"]) == ["de"]
+    assert taxonomy.language_codes(["pt-br"]) == ["pt"]
+    assert taxonomy.language_codes(["es-mx"]) == ["es"]
+    assert taxonomy.language_codes(["en-gb"]) == ["en"]
+    assert taxonomy.language_codes(["zh-tw"]) == []  # chino no es UE
+    assert taxonomy.language_codes(["ru"]) == []
