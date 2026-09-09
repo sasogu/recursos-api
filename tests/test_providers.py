@@ -36,9 +36,11 @@ def test_h5p_eligibility_language_and_stage():
     assert p._is_eligible({"language": "es", "age": "12-16"}) is True
     assert p._is_eligible({"language": "es-mx", "age": "8-11"}) is True
     assert p._is_eligible({"language": "ca", "age": "6-8"}) is True
+    assert p._is_eligible({"language": "en", "age": "12-16"}) is True
+    assert p._is_eligible({"language": "fr", "age": "8-11"}) is True
     # Idioma no apto (ruso/alemán) o etapa adulta.
     assert p._is_eligible({"language": "ru", "age": "12-16"}) is False
-    assert p._is_eligible({"language": "en", "age": "12-16"}) is False
+    assert p._is_eligible({"language": "de", "age": "12-16"}) is False
     assert p._is_eligible({"language": "es", "age": "18-99"}) is False
     assert p._is_eligible({"language": "es", "age": ""}) is False
 

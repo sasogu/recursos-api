@@ -4,8 +4,8 @@ Endpoint público NO documentado oficialmente: /v1/contents devuelve metadatos
 completos (título, licencia, disciplinas, nivel, icono, preview, descargas).
 Paginación con `from` + `size`; filtros `search`, `text`, `disciplines[]`.
 
-Filtro de calidad: solo se indexan los recursos en idioma es/ca y con un rango
-de edad escolar (3-16, extendido a 18 para bachillerato). El hub es
+Filtro de calidad: solo se indexan los recursos en idioma es/ca/en/fr y con un
+rango de edad escolar (3-16, extendido a 18 para bachillerato). El hub es
 mayoritariamente contenido universitario/adulto en ruso/alemán; sin este filtro
 diluye el banco.
 """
@@ -23,7 +23,7 @@ PAGE_SIZE = 50
 H5P_PREVIEW_BASE = "https://hub-api.h5p.org"
 
 # Idiomas que se indexan (vocabulario del banco; el resto se descarta).
-ELIGIBLE_LANGS = {"ca", "es"}
+ELIGIBLE_LANGS = {"ca", "es", "en", "fr"}
 # Rango de edad escolar: empieza como máximo en 16 y termina como máximo en 18.
 MAX_START_AGE = 16
 MAX_SCHOOL_AGE = 18
