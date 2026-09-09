@@ -59,7 +59,7 @@ def run_sync(provider: ResourceProvider) -> SyncRun:
                             run.updated += 1
                         else:
                             conn.execute(
-                                "UPDATE resources SET last_synced_at = ? "
+                                "UPDATE resources SET last_synced_at = ?, active = 1 "
                                 "WHERE provider = ? AND external_id = ?",
                                 (resource.last_synced_at, provider.name, resource.external_id),
                             )

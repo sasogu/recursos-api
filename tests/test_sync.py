@@ -65,6 +65,27 @@ def test_sync_marks_missing_inactive(monkeypatch, tmp_path):
     assert active["2"] == 0
 
 
+def test_sync_reactivates_reappearing_unchanged(monkeypatch, tmp_path):
+    db = tmp_path / "t.db"
+    monkeypatch.setattr("app.db.config.DB_PATH", str(db))
+    init_index_schema()
+
+    run_sync(DummyProvider([_res("1", "A"), _res("2", "B")]))
+    # "2" desaparece y se marca inactivo.
+    run_sync(DummyProvider([_res("1", "A")]))
+    with get_conn() as conn:
+        assert conn.execute(
+            "SELECT active FROM resources WHERE external_id = '2'"
+        ).fetchone()["active"] == 0
+
+    # "2" reaparece SIN cambios de contenido: debe reactivarse (active=1).
+    run_sync(DummyProvider([_res("1", "A"), _res("2", "B")]))
+    with get_conn() as conn:
+        assert conn.execute(
+            "SELECT active FROM resources WHERE external_id = '2'"
+        ).fetchone()["active"] == 1
+
+
 def test_sync_isolated_error_does_not_stop(monkeypatch, tmp_path):
     db = tmp_path / "t.db"
     monkeypatch.setattr("app.db.config.DB_PATH", str(db))
