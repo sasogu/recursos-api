@@ -13,6 +13,13 @@ EDUHOOT_BASE_URL = os.environ.get("EDUHOOT_BASE_URL", "https://eduhoot.edutictac
 # Base del frontend (para construir play_url del visor propio).
 APP_BASE_URL = os.environ.get("RECURSOS_APP_URL", "https://recursos.edutictac.es").rstrip("/")
 
+# Proxy de miniaturas: hosts permitidos (evita SSRF y hotlink a terceros).
+THUMB_ALLOWED_HOSTS = {
+    "clic.xtec.cat",
+    "hub-api.h5p.org",
+    "eduhoot.edutictac.es",
+}
+
 # Comportamiento HTTP (respeto a servidores externos).
 HTTP_TIMEOUT = float(os.environ.get("RESOURCES_HTTP_TIMEOUT", "20"))
 HTTP_RETRIES = int(os.environ.get("RESOURCES_HTTP_RETRIES", "3"))

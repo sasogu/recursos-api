@@ -30,6 +30,7 @@ import secrets
 import sqlite3
 import threading
 import time
+import urllib.parse
 from collections import defaultdict, deque
 from datetime import datetime, timezone
 from pathlib import Path
@@ -38,8 +39,9 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
-from app import oidc
+from app import config, oidc
 from app.db import init_index_schema
+from app.httpclient import get_bytes
 from app.models import Resource
 
 DB_PATH = os.environ.get("RECURSOS_DB", "/var/lib/recursos-api/recursos.db")
@@ -566,6 +568,64 @@ def list_resources(
         "limit": limit,
         "items": [Resource.from_row(r).to_dict() for r in rows],
     }
+
+
+# --- Proxy de miniaturas (evita hotlink a terceros) ---
+
+THUMB_DIR = os.environ.get("RECURSOS_THUMB_DIR", "/var/lib/recursos-api/thumb")
+THUMB_MAX_BYTES = 5 * 1024 * 1024
+THUMB_TTL = 7 * 24 * 3600
+
+_CONTENT_TYPES = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+    ".gif": "image/gif",
+    ".svg": "image/svg+xml",
+}
+
+
+def _thumb_cache_path(url: str) -> Path:
+    digest = hashlib.sha256(url.encode()).hexdigest()
+    return Path(THUMB_DIR) / digest[:2] / f"{digest}.bin"
+
+
+@app.get("/api/thumb")
+def thumb_proxy(url: str = "") -> Response:
+    """Sirve una miniatura remota (allowlist) con caché en disco."""
+    if not url:
+        raise HTTPException(400, "falta url")
+
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        raise HTTPException(400, "url inválida")
+    if parsed.hostname not in config.THUMB_ALLOWED_HOSTS:
+        raise HTTPException(403, "host no permitido")
+
+    cache_path = _thumb_cache_path(url)
+    if cache_path.exists() and (time.time() - cache_path.stat().st_mtime) < THUMB_TTL:
+        data = cache_path.read_bytes()
+    else:
+        try:
+            data = get_bytes(url)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("thumb fetch failed %s: %s", url, exc)
+            raise HTTPException(502, "no se pudo obtener la imagen") from exc
+
+        if len(data) > THUMB_MAX_BYTES:
+            raise HTTPException(413, "imagen demasiado grande")
+
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        cache_path.write_bytes(data)
+
+    ext = Path(parsed.path).suffix.lower()
+    media_type = _CONTENT_TYPES.get(ext, "application/octet-stream")
+    return Response(
+        content=data,
+        media_type=media_type,
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
 
 
 @app.get("/api/admin/sources")

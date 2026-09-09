@@ -7,7 +7,9 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from urllib.parse import quote, urlparse
 
+from . import config
 from .db import get_conn, init_index_schema
 from .models import Resource
 from .providers.legacy import LegacyProvider
@@ -18,6 +20,16 @@ PROVIDER_PRIORITY = {"legacy": 0, "jclic": 1, "h5p": 2, "eduhoot": 3, "scorm": 4
 # Los jclic legacy de clic.xtec.cat/projects/ están cubiertos (con mejores
 # metadatos) por el provider jclic; se excluyen para no duplicar.
 LEGACY_JCLIC_PREFIX = "https://clic.xtec.cat/projects/"
+
+
+def _thumb_url(url: str) -> str:
+    """Miniaturas remotas de hosts permitidos → proxy local (evita hotlink)."""
+    if not url or not url.startswith(("http://", "https://")):
+        return url
+    host = urlparse(url).hostname or ""
+    if host in config.THUMB_ALLOWED_HOSTS:
+        return f"{config.APP_BASE_URL}/api/thumb?url={quote(url)}"
+    return url
 
 
 def _to_game(r: Resource) -> dict:
@@ -41,7 +53,7 @@ def _to_game(r: Resource) -> dict:
     if r.description_ca:
         game["notes_ca"] = r.description_ca
     if r.thumbnail_url:
-        game["image"] = r.thumbnail_url
+        game["image"] = _thumb_url(r.thumbnail_url)
     if r.format == "flash":
         game["flash"] = True
     return game
@@ -74,11 +86,11 @@ def export_catalog(
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     (out / "games.json").write_text(
-        json.dumps(games, ensure_ascii=False, indent=2), encoding="utf-8"
+        json.dumps(games, ensure_ascii=False, separators=(",", ":")), encoding="utf-8"
     )
     home = [g for g in games if g.get("image")][:home_size]
     (out / "games-home.json").write_text(
-        json.dumps(home, ensure_ascii=False, indent=2), encoding="utf-8"
+        json.dumps(home, ensure_ascii=False, separators=(",", ":")), encoding="utf-8"
     )
 
     by_provider: dict[str, int] = {}
