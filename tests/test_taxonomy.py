@@ -13,9 +13,13 @@ def test_jclic_language_maps_known_codes():
     assert taxonomy.jclic_language(["oc"]) == ["oc"]
 
 
-def test_jclic_language_ignores_unknown():
-    # Códigos no mapeados no deben inventar etiquetas.
-    assert taxonomy.jclic_language(["gl", "eu"]) == []
+def test_jclic_language_keeps_any_iso_code():
+    # Vocabulario abierto: cualquier código ISO de 2-3 letras se conserva.
+    assert taxonomy.jclic_language(["gl", "eu"]) == ["gl", "eu"]
+    assert taxonomy.jclic_language(["la", "ar"]) == ["la", "ar"]
+    assert taxonomy.jclic_language(["eo"]) == ["eo"]
+    assert taxonomy.jclic_language([]) == []
+    assert taxonomy.jclic_language(["123"]) == []  # no alfabético se descarta
 
 
 def test_jclic_levels():
@@ -71,7 +75,7 @@ def test_eduhoot_language():
 def test_language_codes_normalizes_mixed_values():
     assert taxonomy.language_codes(["Castellano", "es"]) == ["es"]
     assert taxonomy.language_codes(["Català/Valencià", "Inglés", "Ingles"]) == ["ca", "en"]
-    assert taxonomy.language_codes(["", "ru", None]) == []  # ruso fuera del vocabulario
+    assert taxonomy.language_codes(["", "ru", None]) == ["ru"]  # vocabulario abierto conserva códigos
 
 
 def test_language_codes_eu_and_regional_variants():
@@ -79,5 +83,7 @@ def test_language_codes_eu_and_regional_variants():
     assert taxonomy.language_codes(["pt-br"]) == ["pt"]
     assert taxonomy.language_codes(["es-mx"]) == ["es"]
     assert taxonomy.language_codes(["en-gb"]) == ["en"]
-    assert taxonomy.language_codes(["zh-tw"]) == []  # chino no es UE
-    assert taxonomy.language_codes(["ru"]) == []
+    # Vocabulario abierto: también conserva códigos fuera de la UE.
+    assert taxonomy.language_codes(["ru"]) == ["ru"]
+    assert taxonomy.language_codes(["zh-tw"]) == ["zh"]
+    assert taxonomy.language_codes(["gl", "eu", "la"]) == ["gl", "eu", "la"]

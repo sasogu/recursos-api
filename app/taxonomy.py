@@ -45,7 +45,6 @@ LANGUAGES = [
     "el", "hu", "ga", "it", "lv", "lt", "mt", "pl", "pt", "ro",
     "sk", "sl", "es", "sv", "ca", "oc",
 ]
-LANGUAGE_SET = set(LANGUAGES)
 
 
 def normalize_tag(value: str) -> str:
@@ -63,16 +62,17 @@ def normalize_tag(value: str) -> str:
 # --- Idioma canónico (códigos ISO 639-1) ---
 
 # Alias (normalizados con normalize_tag) → código ISO canónico.
+# Solo para nombres largos y variantes que un simple código ISO no cubre.
 LANGUAGE_ALIASES: dict[str, str] = {
-    # Códigos ISO y variantes.
+    # Códigos ISO y variantes regionales.
     "ca": "ca", "cat": "ca", "va": "ca", "val": "ca", "vlc": "ca",
     "es": "es", "spa": "es", "es mx": "es",
     "en": "en", "eng": "en", "en gb": "en", "en us": "en",
     "fr": "fr", "fra": "fr", "fre": "fr",
-    "oc": "oc", "oci": "oc", "arn": "oc",
+    "oc": "oc", "oci": "oc",
     # Nombres (legacy / históricos).
-    "catala/valencia": "ca", "catala": "ca", "catalan": "ca",
-    "valencia": "ca", "valenciano": "ca",
+    "catala/valencia": "ca", "catalan/valencia": "ca",
+    "catala": "ca", "catalan": "ca", "valencia": "ca", "valenciano": "ca",
     "castellano": "es", "espanol": "es", "spanish": "es",
     "ingles": "en", "english": "en",
     "frances": "fr", "french": "fr",
@@ -84,7 +84,7 @@ def language_code(value: str) -> str:
     """Normaliza un valor de idioma (código ISO o nombre) a su código canónico.
 
     Acepta nombres largos, variantes regionales (es-mx, pt-br, en-gb...) y
-    códigos ISO de la UE. Devuelve "" si está fuera del vocabulario.
+    cualquier código ISO de 2-3 letras. Devuelve "" solo si no es identificable.
     """
     v = str(value or "").strip()
     if not v:
@@ -93,7 +93,9 @@ def language_code(value: str) -> str:
     if key in LANGUAGE_ALIASES:
         return LANGUAGE_ALIASES[key]
     base = key.split()[0]
-    return base if base in LANGUAGE_SET else ""
+    if base.isalpha() and 2 <= len(base) <= 3:
+        return base
+    return ""
 
 
 def language_codes(values: list[str]) -> list[str]:

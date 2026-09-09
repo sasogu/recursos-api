@@ -4,10 +4,10 @@ Endpoint público NO documentado oficialmente: /v1/contents devuelve metadatos
 completos (título, licencia, disciplinas, nivel, icono, preview, descargas).
 Paginación con `from` + `size`; filtros `search`, `text`, `disciplines[]`.
 
-Filtro de calidad: se indexan los recursos en idiomas de la UE (+ catalán/valenciano
-y aranés) y con edad escolar o sin edad declarada. Se descartan los idiomas fuera
-del vocabulario (ruso, chino, turco...) y el contenido claramente adulto (edad
-mínima ≥ 18).
+Filtro de calidad: se indexan los recursos en idiomas de la UE (+ catalán/valenciano,
+aranés, euskera y gallego) y con edad escolar o sin edad declarada. Se descartan
+el resto de idiomas (ruso, chino, turco, árabe...) y el contenido claramente
+adulto (edad mínima ≥ 18).
 """
 from __future__ import annotations
 
@@ -24,6 +24,9 @@ H5P_PREVIEW_BASE = "https://hub-api.h5p.org"
 
 # Edad mínima a partir de la cual un recurso se considera contenido adulto.
 ADULT_AGE = 18
+# Idiomas que se indexan de H5P: UE + catalán/valenciano, aranés, euskera y
+# gallego. El resto (ruso, chino, turco, árabe...) se descarta.
+H5P_INDEX_LANGS = set(taxonomy.LANGUAGES) | {"eu", "gl"}
 
 
 def _parse_age(age: str) -> tuple[int | None, int | None]:
@@ -84,9 +87,10 @@ class H5POERHubProvider(ResourceProvider):
                 break
 
     def _is_eligible(self, raw: dict) -> bool:
-        """Filtra por idioma (UE + ca/oc) y descarta contenido claramente adulto."""
+        """Filtra por idioma (UE + ca/oc/eu/gl) y descarta contenido adulto."""
         language = raw.get("language", "") or ""
-        if not taxonomy.language_codes([language]):
+        codes = taxonomy.language_codes([language])
+        if not codes or not set(codes) <= H5P_INDEX_LANGS:
             return False
         return _age_is_eligible(raw.get("age", "") or "")
 

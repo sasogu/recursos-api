@@ -38,10 +38,14 @@ def test_h5p_eligibility():
     assert p._is_eligible({"language": "de", "age": "8-11"}) is True
     assert p._is_eligible({"language": "de", "age": ""}) is True  # sin edad
     assert p._is_eligible({"language": "pt-br", "age": "10"}) is True
-    # Adulto explícito o idioma fuera de la UE.
+    assert p._is_eligible({"language": "eu", "age": "10"}) is True  # euskera sí
+    assert p._is_eligible({"language": "gl", "age": "10"}) is True  # gallego sí
+    # Adulto explícito o idioma fuera del alcance de H5P (ruso/latín/chino).
     assert p._is_eligible({"language": "es", "age": "18-99"}) is False
     assert p._is_eligible({"language": "ru", "age": "12-16"}) is False
     assert p._is_eligible({"language": "ru", "age": ""}) is False
+    assert p._is_eligible({"language": "la", "age": ""}) is False
+    assert p._is_eligible({"language": "zh", "age": "10"}) is False
 
 
 def test_eduhoot_non_educational_blocked():
