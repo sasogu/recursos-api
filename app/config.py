@@ -10,6 +10,9 @@ JCLIC_PROJECTS_URL = os.environ.get(
 H5P_HUB_API = os.environ.get("H5P_HUB_API", "https://hub-api.h5p.org/v1")
 EDUHOOT_BASE_URL = os.environ.get("EDUHOOT_BASE_URL", "https://eduhoot.edutictac.es")
 
+# Base del frontend (para construir play_url del visor propio).
+APP_BASE_URL = os.environ.get("RECURSOS_APP_URL", "https://recursos.edutictac.es").rstrip("/")
+
 # Comportamiento HTTP (respeto a servidores externos).
 HTTP_TIMEOUT = float(os.environ.get("RESOURCES_HTTP_TIMEOUT", "20"))
 HTTP_RETRIES = int(os.environ.get("RESOURCES_HTTP_RETRIES", "3"))

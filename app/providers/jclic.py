@@ -6,6 +6,7 @@ langCodes, levelCodes, areaCodes, mainFile, cover/thumbnail.
 from __future__ import annotations
 
 from typing import Iterator
+from urllib.parse import quote
 
 from .. import config, taxonomy
 from ..httpclient import get_json
@@ -35,8 +36,16 @@ class JClicProvider(ResourceProvider):
         lang_codes = raw.get("langCodes", [])
         level_codes = raw.get("levelCodes", [])
         area_codes = raw.get("areaCodes", [])
+        main_file = raw.get("mainFile", "")
 
-        play_url = f"{JCLIC_BASE}/projects/{path}/jclic.js/index.html" if path else ""
+        # Proyecto remoto (clic.xtec.cat) reproducido por el visor local.
+        project_url = f"{JCLIC_BASE}/projects/{path}/{main_file}" if path and main_file else ""
+        play_url = (
+            f"{config.APP_BASE_URL}/jclic.html"
+            f"?project={quote(project_url)}&title={quote(title)}"
+            if project_url
+            else ""
+        )
         cover = raw.get("coverWebp") or raw.get("cover") or raw.get("thumbnail") or ""
         thumbnail = f"{JCLIC_BASE}/projects/{path}/{cover}" if path and cover else ""
 
