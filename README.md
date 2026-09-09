@@ -15,13 +15,18 @@ API REST (FastAPI + SQLite) para la PWA de Banc de recursos. Sustituye a Firebas
 - `GET  /api/auth/login` — inicia sesión con Authentik
 - `GET  /api/auth/logout` — cierra sesión local
 - `GET  /api/auth/me` — estado de sesión OIDC
+- `POST /api/student/login` — inicia sesión con credencial pseudónima EduTicTac ID
+- `POST /api/student/logout` — cierra sesión de alumnado
 - `POST /api/admin/resources/hide` `{ game_key }` — oculta un recurso del listado público
 - `GET  /api/resources` — índice federado de recursos (búsqueda + filtros)
 - `GET  /api/admin/sources` — estado de las fuentes de recursos (requiere admin)
 
 Identidad anónima por cookie firmada (HMAC, sin Google). El modo admin se
 activa al iniciar sesión con Authentik si el correo OIDC figura en
-`OIDC_ADMIN_EMAILS`.
+`OIDC_ADMIN_EMAILS`. El alumnado puede iniciar sesión con una credencial
+pseudónima EduTicTac ID (`group_id + public_code + PIN`); el backend solo guarda
+la sesión local `student:<grupo>:<codigo>` para favoritos, valoraciones y
+reportes.
 
 ## Despliegue
 
@@ -39,6 +44,7 @@ OIDC_REDIRECT_URI=https://recursos.edutictac.es/api/auth/callback
 OIDC_SCOPE=openid
 OIDC_ADMIN_SUBS=...
 OIDC_ADMIN_EMAILS=...
+EDUTICTAC_ID_API_URL=https://id-api.edutictac.es
 ```
 
 Los secretos de OIDC y sesión se guardan fuera del repositorio, en el fichero de

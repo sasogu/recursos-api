@@ -35,6 +35,7 @@ from collections import defaultdict, deque
 from datetime import datetime, timezone
 from pathlib import Path
 
+import httpx
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
@@ -48,6 +49,7 @@ DB_PATH = os.environ.get("RECURSOS_DB", "/var/lib/recursos-api/recursos.db")
 SESSION_SECRET = os.environ.get("RECURSOS_SECRET", "")
 SESSION_COOKIE = "recursos_session"
 COOKIE_SECURE = os.environ.get("RECURSOS_COOKIE_SECURE", "1").lower() not in {"0", "false", "no"}
+EDUTICTAC_ID_API_URL = os.environ.get("EDUTICTAC_ID_API_URL", "").rstrip("/")
 
 RATE_WINDOW = 60
 RATE_MAX = 60
@@ -267,6 +269,12 @@ class SubmissionIn(BaseModel):
     area: str = "General"
     language: str = ""
     name: str = ""
+
+
+class StudentLoginIn(BaseModel):
+    group_id: str
+    public_code: str
+    pin: str
 
 
 # --- Endpoints ---
@@ -492,6 +500,17 @@ def _ensure_uid(request: Request, response: Response) -> tuple[str, bool]:
     uid = secrets.token_hex(16)
     set_session_cookie(response, make_session(uid, admin=False), 60 * 60 * 24 * 365)
     return uid, False
+
+
+def _student_payload(uid: str) -> dict:
+    if not uid.startswith("student:"):
+        return {"student_logged_in": False, "student_code": "", "student_group": ""}
+    parts = uid.split(":", 3)
+    return {
+        "student_logged_in": True,
+        "student_group": parts[1] if len(parts) > 1 else "",
+        "student_code": parts[2] if len(parts) > 2 else "",
+    }
 
 
 # --- Índice federado de recursos (búsqueda unificada) ---
@@ -724,4 +743,45 @@ def auth_me(request: Request) -> dict:
         "admin": admin,
         "sub": sub,
         "admin_sub": sub,
+        **_student_payload(uid),
     }
+
+
+@app.post("/api/student/login")
+def student_login(payload: StudentLoginIn, request: Request, response: Response) -> dict:
+    if rate_limited(_client_ip(request)):
+        raise HTTPException(status_code=429, detail="too many requests")
+    if not EDUTICTAC_ID_API_URL:
+        raise HTTPException(status_code=503, detail="student login not configured")
+    try:
+        id_response = httpx.post(
+            f"{EDUTICTAC_ID_API_URL}/api/auth/student",
+            json={
+                "group_id": payload.group_id.strip(),
+                "public_code": payload.public_code.strip(),
+                "pin": payload.pin.strip(),
+            },
+            timeout=10,
+        )
+    except httpx.HTTPError as exc:
+        logger.warning("student login id api failed: %s", exc.__class__.__name__)
+        raise HTTPException(status_code=502, detail="student identity service unavailable") from exc
+    if id_response.status_code == 401:
+        raise HTTPException(status_code=401, detail="invalid student credentials")
+    if id_response.status_code >= 400:
+        raise HTTPException(status_code=502, detail="student identity service rejected request")
+    data = id_response.json()
+    identity = data.get("identity") if isinstance(data, dict) else None
+    if not isinstance(identity, dict) or not identity.get("id") or not identity.get("public_code"):
+        raise HTTPException(status_code=502, detail="invalid student identity response")
+    public_code = re.sub(r"[^A-Z0-9]+", "", str(identity["public_code"]).upper())[:12]
+    group_id = str(identity.get("group_id") or payload.group_id).strip()
+    uid = f"student:{group_id}:{public_code}:{identity['id']}"
+    set_session_cookie(response, make_session(uid, admin=False), 60 * 60 * 24 * 180)
+    return {"ok": True, "student_code": public_code, "student_group": group_id}
+
+
+@app.post("/api/student/logout")
+def student_logout(response: Response) -> dict:
+    delete_session_cookie(response)
+    return {"ok": True}
