@@ -37,7 +37,7 @@ EduTicTac ID (`public_code + PIN`); el backend només guarda la sessió local
 Dependència estable actual:
 
 ```txt
-edutictac-community @ git+https://git.edutictac.es/Edutictac/edutictac-community.git@v0.1.3
+edutictac-community @ git+https://git.edutictac.es/Edutictac/edutictac-community.git@v0.1.4
 ```
 
 Components reutilitzats:
