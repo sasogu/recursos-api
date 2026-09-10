@@ -3,6 +3,10 @@
 API REST (FastAPI + SQLite) para la PWA de Banc de recursos. Sustituye a Firebase
 (Firestore + Authentication, proyecto `edubibliojocs`) desde 2026-09.
 
+Usa `edutictac-community` como núcleo común para conexión SQLite, rate limit,
+cookies firmadas y cliente OIDC. La lógica propia de Banc de recursos
+(favoritos, valoraciones, reportes e índice federado) sigue en este servicio.
+
 ## Endpoints
 
 - `GET  /api/health`
@@ -28,6 +32,25 @@ activa al iniciar sesión con Authentik si el correo OIDC figura en
 pseudónima EduTicTac ID (`public_code + PIN`); el backend solo guarda la sesión
 local `student:<codigo>:<identity_id>` para favoritos, valoraciones y reportes.
 
+## Núcleo común
+
+Dependencia estable actual:
+
+```txt
+edutictac-community @ git+https://git.edutictac.es/Edutictac/edutictac-community.git@v0.1.1
+```
+
+Componentes reutilizados:
+
+- `edutictac_community.db.connect` para SQLite con WAL.
+- `edutictac_community.ratelimit.RateLimiter` para límites en memoria.
+- `edutictac_community.session.SignedSession` para cookies HMAC.
+- `edutictac_community.oidc.OIDCClient` para Authentik/OIDC.
+
+No se usa aún `create_community_router`: los endpoints públicos de la PWA usan
+`game_key`, mientras el router común trabaja con `item_key`. Migrarlo requiere
+un adaptador o configuración explícita para no romper clientes ni datos.
+
 ## Despliegue
 
 Código en `/opt/recursos-api`, servicio systemd `recursos-api.service`
@@ -44,7 +67,7 @@ OIDC_REDIRECT_URI=https://recursos.edutictac.es/api/auth/callback
 OIDC_SCOPE=openid
 OIDC_ADMIN_SUBS=...
 OIDC_ADMIN_EMAILS=...
-EDUTICTAC_ID_API_URL=https://id-api.edutictac.es
+EDUTICTAC_ID_API_URL=http://127.0.0.1:8005
 EDUTICTAC_ID_TEACHER_TOKEN=...
 ```
 
