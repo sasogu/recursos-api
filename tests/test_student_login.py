@@ -12,7 +12,6 @@ class FakeIdResponse:
         return {
             "identity": {
                 "id": "ident-1",
-                "group_id": "GABCDE",
                 "public_code": "K7P",
             }
         }
@@ -49,16 +48,16 @@ def test_student_login_creates_pseudonymous_session(tmp_path, monkeypatch):
     monkeypatch.setattr(main.httpx, "post", fake_post)
     response = Response()
     result = main.student_login(
-        main.StudentLoginIn(group_id="GABCDE", public_code="k7p", pin="1234"),
+        main.StudentLoginIn(public_code="k7p", pin="1234"),
         request(),
         response,
     )
 
-    assert result == {"ok": True, "student_code": "K7P", "student_group": "GABCDE"}
+    assert result == {"ok": True, "student_code": "K7P"}
     assert calls == [
         {
             "url": "https://id-api.example.test/api/auth/student",
-            "json": {"group_id": "GABCDE", "public_code": "k7p", "pin": "1234"},
+            "json": {"public_code": "k7p", "pin": "1234"},
             "timeout": 10,
         }
     ]
@@ -67,5 +66,5 @@ def test_student_login_creates_pseudonymous_session(tmp_path, monkeypatch):
     jar.load(cookie)
     session_value = jar[main.SESSION_COOKIE].value
     parsed = main.parse_session(session_value)
-    assert parsed["uid"] == "student:GABCDE:K7P:ident-1"
+    assert parsed["uid"] == "student:K7P:ident-1"
     assert parsed["admin"] is False

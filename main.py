@@ -272,7 +272,6 @@ class SubmissionIn(BaseModel):
 
 
 class StudentLoginIn(BaseModel):
-    group_id: str
     public_code: str
     pin: str
 
@@ -504,12 +503,11 @@ def _ensure_uid(request: Request, response: Response) -> tuple[str, bool]:
 
 def _student_payload(uid: str) -> dict:
     if not uid.startswith("student:"):
-        return {"student_logged_in": False, "student_code": "", "student_group": ""}
-    parts = uid.split(":", 3)
+        return {"student_logged_in": False, "student_code": ""}
+    parts = uid.split(":", 2)
     return {
         "student_logged_in": True,
-        "student_group": parts[1] if len(parts) > 1 else "",
-        "student_code": parts[2] if len(parts) > 2 else "",
+        "student_code": parts[1] if len(parts) > 1 else "",
     }
 
 
@@ -757,7 +755,6 @@ def student_login(payload: StudentLoginIn, request: Request, response: Response)
         id_response = httpx.post(
             f"{EDUTICTAC_ID_API_URL}/api/auth/student",
             json={
-                "group_id": payload.group_id.strip(),
                 "public_code": payload.public_code.strip(),
                 "pin": payload.pin.strip(),
             },
@@ -775,10 +772,9 @@ def student_login(payload: StudentLoginIn, request: Request, response: Response)
     if not isinstance(identity, dict) or not identity.get("id") or not identity.get("public_code"):
         raise HTTPException(status_code=502, detail="invalid student identity response")
     public_code = re.sub(r"[^A-Z0-9]+", "", str(identity["public_code"]).upper())[:12]
-    group_id = str(identity.get("group_id") or payload.group_id).strip()
-    uid = f"student:{group_id}:{public_code}:{identity['id']}"
+    uid = f"student:{public_code}:{identity['id']}"
     set_session_cookie(response, make_session(uid, admin=False), 60 * 60 * 24 * 180)
-    return {"ok": True, "student_code": public_code, "student_group": group_id}
+    return {"ok": True, "student_code": public_code}
 
 
 @app.post("/api/student/logout")

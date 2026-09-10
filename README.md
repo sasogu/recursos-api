@@ -24,9 +24,8 @@ API REST (FastAPI + SQLite) para la PWA de Banc de recursos. Sustituye a Firebas
 Identidad anónima por cookie firmada (HMAC, sin Google). El modo admin se
 activa al iniciar sesión con Authentik si el correo OIDC figura en
 `OIDC_ADMIN_EMAILS`. El alumnado puede iniciar sesión con una credencial
-pseudónima EduTicTac ID (`group_id + public_code + PIN`); el backend solo guarda
-la sesión local `student:<grupo>:<codigo>` para favoritos, valoraciones y
-reportes.
+pseudónima EduTicTac ID (`public_code + PIN`); el backend solo guarda la sesión
+local `student:<codigo>:<identity_id>` para favoritos, valoraciones y reportes.
 
 ## Despliegue
 
