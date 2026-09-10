@@ -19,23 +19,22 @@ Endpoints:
   POST /api/admin/resources/hide { game_key }
 """
 
-import base64
 import hashlib
-import hmac
 import json
 import logging
 import os
 import re
 import secrets
 import sqlite3
-import threading
 import time
 import urllib.parse
-from collections import defaultdict, deque
 from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
+from edutictac_community.db import connect as _db_connect
+from edutictac_community.ratelimit import RateLimiter
+from edutictac_community.session import SignedSession
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
@@ -55,8 +54,7 @@ EDUTICTAC_ID_TEACHER_TOKEN = os.environ.get("EDUTICTAC_ID_TEACHER_TOKEN", "")
 
 RATE_WINDOW = 60
 RATE_MAX = 60
-_rate_lock = threading.Lock()
-_rate: dict[str, deque] = defaultdict(deque)
+_rate_limiter = RateLimiter(max_calls=RATE_MAX, window_seconds=RATE_WINDOW)
 
 app = FastAPI(title="Bibliojocs API")
 logger = logging.getLogger("recursos_api")
@@ -70,16 +68,8 @@ app.add_middleware(
 )
 
 
-def _ensure_dir() -> None:
-    Path(DB_PATH).parent.mkdir(parents=True, exist_ok=True)
-
-
 def get_conn() -> sqlite3.Connection:
-    _ensure_dir()
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL;")
-    return conn
+    return _db_connect(DB_PATH)
 
 
 def init_db() -> None:
@@ -171,29 +161,15 @@ init_index_schema()
 
 # --- Sesión firmada (cookie) ---
 
-def _sign(data: str) -> str:
-    if not SESSION_SECRET:
-        raise RuntimeError("RECURSOS_SECRET is required")
-    return hmac.new(SESSION_SECRET.encode(), data.encode(), hashlib.sha256).hexdigest()
+_session = SignedSession(SESSION_SECRET, SESSION_COOKIE, cookie_secure=COOKIE_SECURE)
 
 
 def make_session(uid: str, admin: bool = False) -> str:
-    payload = json.dumps({"uid": uid, "admin": bool(admin)})
-    data = base64.urlsafe_b64encode(payload.encode()).decode()
-    return f"{data}.{_sign(data)}"
+    return _session.encode({"uid": uid, "admin": bool(admin)})
 
 
 def parse_session(cookie: str | None) -> dict | None:
-    if not cookie or not SESSION_SECRET:
-        return None
-    try:
-        data, sig = cookie.split(".", 1)
-        expected = _sign(data)
-        if not hmac.compare_digest(sig, expected):
-            return None
-        return json.loads(base64.urlsafe_b64decode(data.encode()).decode())
-    except Exception:
-        return None
+    return _session.decode(cookie)
 
 
 def set_session_cookie(response: Response, value: str, max_age: int) -> None:
@@ -246,15 +222,7 @@ def get_session(request: Request) -> tuple[str, bool]:
 
 
 def rate_limited(ip: str) -> bool:
-    now = time.monotonic()
-    with _rate_lock:
-        q = _rate[ip]
-        while q and now - q[0] > RATE_WINDOW:
-            q.popleft()
-        if len(q) >= RATE_MAX:
-            return True
-        q.append(now)
-    return False
+    return _rate_limiter(ip)
 
 
 def _client_ip(request: Request) -> str:
