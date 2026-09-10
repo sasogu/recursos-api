@@ -1,8 +1,8 @@
-"""Bibliojocs API — backend autoalojado que sustituye a Firebase Firestore+Auth.
+"""Recursos API — backend autoalojado que sustituye a Firebase Firestore+Auth.
 
-API REST (FastAPI + SQLite) para la PWA de Bibliojocs: favoritos, valoraciones
-(con resumen agregado), avisos de actividad rota, propuestas de actividades y
-modo admin por token. Identidad anónima por cookie firmada (sin Google).
+API REST (FastAPI + SQLite) para la PWA del Banc de recursos: favoritos,
+valoraciones (con resumen agregado), avisos de actividad rota, propuestas de
+actividades y modo admin por token. Identidad anónima por cookie firmada (sin Google).
 
 Endpoints:
   GET  /api/health
@@ -56,7 +56,7 @@ RATE_WINDOW = 60
 RATE_MAX = 60
 _rate_limiter = RateLimiter(max_calls=RATE_MAX, window_seconds=RATE_WINDOW)
 
-app = FastAPI(title="Bibliojocs API")
+app = FastAPI(title="Recursos API")
 logger = logging.getLogger("recursos_api")
 
 app.add_middleware(
