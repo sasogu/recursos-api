@@ -73,6 +73,38 @@ class FakeRegeneratePinResponse:
         return {"id": "ident-1", "pin": "4321"}
 
 
+class FakeAssignmentResponse:
+    status_code = 201
+
+    def json(self):
+        return {
+            "assignment": {
+                "id": "assign-1",
+                "group_id": "batch-1",
+                "app_id": "eduhoot",
+                "activity_id": "quiz-a",
+                "title": "Quiz A",
+            }
+        }
+
+
+class FakeAssignmentsResponse:
+    status_code = 200
+
+    def json(self):
+        return {
+            "assignments": [
+                {
+                    "id": "assign-1",
+                    "group_id": "batch-1",
+                    "app_id": "eduhoot",
+                    "activity_id": "quiz-a",
+                    "title": "Quiz A",
+                }
+            ]
+        }
+
+
 def load_main(tmp_path, monkeypatch):
     monkeypatch.setenv("RECURSOS_DB", str(tmp_path / "recursos.db"))
     monkeypatch.setenv("RECURSOS_SECRET", "test-secret")
@@ -256,6 +288,71 @@ def test_teacher_can_regenerate_student_pin(tmp_path, monkeypatch):
             "url": "https://id-api.example.test/api/identities/ident-1/regenerate-pin",
             "json": None,
             "params": {"pin_length": 4},
+            "headers": {"Authorization": "Bearer teacher-secret"},
+            "timeout": 10,
+        }
+    ]
+
+
+def test_teacher_can_create_activity_assignment(tmp_path, monkeypatch):
+    main = load_main(tmp_path, monkeypatch)
+    monkeypatch.setattr(main, "EDUTICTAC_ID_TEACHER_TOKEN", "teacher-secret")
+    calls = []
+
+    def fake_post(url, json=None, params=None, headers=None, timeout=None):
+        calls.append({"url": url, "json": json, "headers": headers, "timeout": timeout})
+        return FakeAssignmentResponse()
+
+    monkeypatch.setattr(main.httpx, "post", fake_post)
+    teacher_cookie = main.make_session("oidc:teacher-sub", admin=False)
+    result = main.create_activity_assignment(
+        main.ActivityAssignmentIn(
+            group_id="batch-1",
+            app_id="EduHoot",
+            activity_id="Quiz A",
+            title="Quiz A",
+        ),
+        SimpleNamespace(cookies={main.SESSION_COOKIE: teacher_cookie}, client=SimpleNamespace(host="127.0.0.1")),
+    )
+
+    assert result["assignment"]["id"] == "assign-1"
+    assert calls == [
+        {
+            "url": "https://id-api.example.test/api/teacher/activity-assignments",
+            "json": {
+                "group_id": "batch-1",
+                "app_id": "EduHoot",
+                "activity_id": "Quiz A",
+                "title": "Quiz A",
+            },
+            "headers": {"Authorization": "Bearer teacher-secret"},
+            "timeout": 10,
+        }
+    ]
+
+
+def test_teacher_can_list_activity_assignments(tmp_path, monkeypatch):
+    main = load_main(tmp_path, monkeypatch)
+    monkeypatch.setattr(main, "EDUTICTAC_ID_TEACHER_TOKEN", "teacher-secret")
+    calls = []
+
+    def fake_get(url, params=None, headers=None, timeout=None):
+        calls.append({"url": url, "params": params, "headers": headers, "timeout": timeout})
+        return FakeAssignmentsResponse()
+
+    monkeypatch.setattr(main.httpx, "get", fake_get)
+    teacher_cookie = main.make_session("oidc:teacher-sub", admin=False)
+    result = main.activity_assignments(
+        SimpleNamespace(cookies={main.SESSION_COOKIE: teacher_cookie}, client=SimpleNamespace(host="127.0.0.1")),
+        group_id="batch-1",
+        limit=50,
+    )
+
+    assert [item["id"] for item in result["assignments"]] == ["assign-1"]
+    assert calls == [
+        {
+            "url": "https://id-api.example.test/api/teacher/activity-assignments",
+            "params": {"limit": 50, "group_id": "batch-1"},
             "headers": {"Authorization": "Bearer teacher-secret"},
             "timeout": 10,
         }

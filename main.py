@@ -291,6 +291,13 @@ class PinRegenerateIn(BaseModel):
     pin_length: int = 4
 
 
+class ActivityAssignmentIn(BaseModel):
+    group_id: str
+    app_id: str
+    activity_id: str
+    title: str = ""
+
+
 # --- Endpoints ---
 
 @app.get("/api/health")
@@ -777,6 +784,66 @@ def student_identity_by_code(public_code: str, request: Request) -> dict:
         raise HTTPException(status_code=502, detail="student identity service rejected request")
     data = id_response.json()
     if not isinstance(data, dict) or not isinstance(data.get("identity"), dict):
+        raise HTTPException(status_code=502, detail="invalid student identity response")
+    return data
+
+
+@app.post("/api/teacher/activity-assignments", status_code=201)
+def create_activity_assignment(payload: ActivityAssignmentIn, request: Request) -> dict:
+    _require_teacher(request)
+    if not EDUTICTAC_ID_API_URL or not EDUTICTAC_ID_TEACHER_TOKEN:
+        raise HTTPException(status_code=503, detail="student credential service not configured")
+    body = {
+        "group_id": str(payload.group_id or "").strip(),
+        "app_id": str(payload.app_id or "").strip(),
+        "activity_id": str(payload.activity_id or "").strip(),
+        "title": str(payload.title or "").strip()[:160],
+    }
+    if not body["group_id"] or not body["app_id"] or not body["activity_id"]:
+        raise HTTPException(status_code=400, detail="group_id, app_id and activity_id are required")
+    try:
+        id_response = httpx.post(
+            f"{EDUTICTAC_ID_API_URL}/api/teacher/activity-assignments",
+            json=body,
+            headers={"Authorization": f"Bearer {EDUTICTAC_ID_TEACHER_TOKEN}"},
+            timeout=10,
+        )
+    except httpx.HTTPError as exc:
+        logger.warning("activity assignment id api failed: %s", exc.__class__.__name__)
+        raise HTTPException(status_code=502, detail="student identity service unavailable") from exc
+    if id_response.status_code == 404:
+        raise HTTPException(status_code=404, detail="group not found")
+    if id_response.status_code >= 400:
+        raise HTTPException(status_code=502, detail="student identity service rejected request")
+    data = id_response.json()
+    if not isinstance(data, dict) or not isinstance(data.get("assignment"), dict):
+        raise HTTPException(status_code=502, detail="invalid student identity response")
+    return data
+
+
+@app.get("/api/teacher/activity-assignments")
+def activity_assignments(request: Request, group_id: str = "", limit: int = 100) -> dict:
+    _require_teacher(request)
+    if not EDUTICTAC_ID_API_URL or not EDUTICTAC_ID_TEACHER_TOKEN:
+        raise HTTPException(status_code=503, detail="student credential service not configured")
+    safe_limit = max(1, min(500, int(limit or 100)))
+    params: dict[str, str | int] = {"limit": safe_limit}
+    if group_id:
+        params["group_id"] = group_id.strip()
+    try:
+        id_response = httpx.get(
+            f"{EDUTICTAC_ID_API_URL}/api/teacher/activity-assignments",
+            params=params,
+            headers={"Authorization": f"Bearer {EDUTICTAC_ID_TEACHER_TOKEN}"},
+            timeout=10,
+        )
+    except httpx.HTTPError as exc:
+        logger.warning("activity assignments id api failed: %s", exc.__class__.__name__)
+        raise HTTPException(status_code=502, detail="student identity service unavailable") from exc
+    if id_response.status_code >= 400:
+        raise HTTPException(status_code=502, detail="student identity service rejected request")
+    data = id_response.json()
+    if not isinstance(data, dict) or not isinstance(data.get("assignments"), list):
         raise HTTPException(status_code=502, detail="invalid student identity response")
     return data
 
