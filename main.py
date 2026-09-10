@@ -318,6 +318,9 @@ def _ensure_uid(request: Request, response: Response) -> tuple[str, bool]:
 
 
 def resolve_community_identity(request: Request, response: Response) -> Identity:
+    if request.method == "GET" and request.url.path.endswith("/preferences"):
+        uid, admin = get_session(request)
+        return Identity(uid=uid, admin=admin)
     uid, admin = _ensure_uid(request, response)
     return Identity(uid=uid, admin=admin)
 
