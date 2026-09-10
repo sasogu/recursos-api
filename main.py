@@ -704,3 +704,25 @@ def create_student_batch(payload: StudentBatchIn, request: Request) -> dict:
             if isinstance(item, dict) and item.get("public_code") and item.get("pin")
         ],
     }
+
+
+@app.get("/api/teacher/student-summary")
+def student_summary(request: Request) -> dict:
+    _require_teacher(request)
+    if not EDUTICTAC_ID_API_URL or not EDUTICTAC_ID_TEACHER_TOKEN:
+        raise HTTPException(status_code=503, detail="student credential service not configured")
+    try:
+        id_response = httpx.get(
+            f"{EDUTICTAC_ID_API_URL}/api/teacher/summary",
+            headers={"Authorization": f"Bearer {EDUTICTAC_ID_TEACHER_TOKEN}"},
+            timeout=10,
+        )
+    except httpx.HTTPError as exc:
+        logger.warning("student summary id api failed: %s", exc.__class__.__name__)
+        raise HTTPException(status_code=502, detail="student identity service unavailable") from exc
+    if id_response.status_code >= 400:
+        raise HTTPException(status_code=502, detail="student identity service rejected request")
+    data = id_response.json()
+    if not isinstance(data, dict):
+        raise HTTPException(status_code=502, detail="invalid student identity response")
+    return data

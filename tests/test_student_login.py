@@ -35,6 +35,18 @@ class FakeBatchResponse:
         }
 
 
+class FakeSummaryResponse:
+    status_code = 200
+
+    def json(self):
+        return {
+            "total": 2,
+            "active": 2,
+            "inactive": 0,
+            "groups": [{"id": "batch-1", "total": 2, "active": 2, "created_at": "2026-09-10T13:00:00+00:00"}],
+        }
+
+
 def load_main(tmp_path, monkeypatch):
     monkeypatch.setenv("RECURSOS_DB", str(tmp_path / "recursos.db"))
     monkeypatch.setenv("RECURSOS_SECRET", "test-secret")
@@ -114,6 +126,32 @@ def test_teacher_can_generate_student_batch(tmp_path, monkeypatch):
             "json": {"count": 2, "pin_length": 4, "tenant_id": "recursos"},
             "headers": {"Authorization": "Bearer teacher-secret"},
             "timeout": 15,
+        }
+    ]
+
+
+def test_teacher_can_read_student_summary(tmp_path, monkeypatch):
+    main = load_main(tmp_path, monkeypatch)
+    monkeypatch.setattr(main, "EDUTICTAC_ID_TEACHER_TOKEN", "teacher-secret")
+    calls = []
+
+    def fake_get(url, headers=None, timeout=None):
+        calls.append({"url": url, "headers": headers, "timeout": timeout})
+        return FakeSummaryResponse()
+
+    monkeypatch.setattr(main.httpx, "get", fake_get)
+    teacher_cookie = main.make_session("oidc:teacher-sub", admin=False)
+    result = main.student_summary(
+        SimpleNamespace(cookies={main.SESSION_COOKIE: teacher_cookie}, client=SimpleNamespace(host="127.0.0.1")),
+    )
+
+    assert result["total"] == 2
+    assert result["groups"][0]["id"] == "batch-1"
+    assert calls == [
+        {
+            "url": "https://id-api.example.test/api/teacher/summary",
+            "headers": {"Authorization": "Bearer teacher-secret"},
+            "timeout": 10,
         }
     ]
 
