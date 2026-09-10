@@ -25,6 +25,7 @@ de recursos (índex federat i integracions educatives) continua en aquest servei
 - `GET  /api/teacher/student-identities/by-code/{public_code}` - localitza una credencial activa per regenerar el PIN
 - `POST /api/teacher/activity-assignments` - crea una activitat proposada pel docent per separar resultats per context
 - `GET  /api/teacher/activity-assignments` - llista activitats proposades pel docent
+- `GET  /api/teacher/activity-assignments/{id}/results` - informe mínim de resultats per activitat proposada
 - `POST /api/admin/resources/hide` `{ game_key }` - oculta un recurs del llistat públic
 - `GET  /api/resources` - índex federat de recursos (cerca + filtres)
 - `GET  /api/admin/sources` - estat de les fonts de recursos (requereix admin)

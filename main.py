@@ -848,6 +848,30 @@ def activity_assignments(request: Request, group_id: str = "", limit: int = 100)
     return data
 
 
+@app.get("/api/teacher/activity-assignments/{assignment_id}/results")
+def activity_assignment_results(assignment_id: str, request: Request) -> dict:
+    _require_teacher(request)
+    if not EDUTICTAC_ID_API_URL or not EDUTICTAC_ID_TEACHER_TOKEN:
+        raise HTTPException(status_code=503, detail="student credential service not configured")
+    try:
+        id_response = httpx.get(
+            f"{EDUTICTAC_ID_API_URL}/api/teacher/activity-assignments/{assignment_id}/results",
+            headers={"Authorization": f"Bearer {EDUTICTAC_ID_TEACHER_TOKEN}"},
+            timeout=10,
+        )
+    except httpx.HTTPError as exc:
+        logger.warning("activity assignment results id api failed: %s", exc.__class__.__name__)
+        raise HTTPException(status_code=502, detail="student identity service unavailable") from exc
+    if id_response.status_code == 404:
+        raise HTTPException(status_code=404, detail="assignment not found")
+    if id_response.status_code >= 400:
+        raise HTTPException(status_code=502, detail="student identity service rejected request")
+    data = id_response.json()
+    if not isinstance(data, dict) or not isinstance(data.get("assignment"), dict) or not isinstance(data.get("results"), list):
+        raise HTTPException(status_code=502, detail="invalid student identity response")
+    return data
+
+
 @app.post("/api/teacher/student-identities/{identity_id}/regenerate-pin")
 def regenerate_student_pin(identity_id: str, payload: PinRegenerateIn, request: Request) -> dict:
     _require_teacher(request)
