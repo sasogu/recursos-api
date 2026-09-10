@@ -50,6 +50,7 @@ SESSION_SECRET = os.environ.get("RECURSOS_SECRET", "")
 SESSION_COOKIE = "recursos_session"
 COOKIE_SECURE = os.environ.get("RECURSOS_COOKIE_SECURE", "1").lower() not in {"0", "false", "no"}
 EDUTICTAC_ID_API_URL = os.environ.get("EDUTICTAC_ID_API_URL", "").rstrip("/")
+EDUTICTAC_ID_TEACHER_TOKEN = os.environ.get("EDUTICTAC_ID_TEACHER_TOKEN", "")
 
 RATE_WINDOW = 60
 RATE_MAX = 60
@@ -274,6 +275,11 @@ class SubmissionIn(BaseModel):
 class StudentLoginIn(BaseModel):
     public_code: str
     pin: str
+
+
+class StudentBatchIn(BaseModel):
+    count: int
+    pin_length: int = 4
 
 
 # --- Endpoints ---
@@ -509,6 +515,13 @@ def _student_payload(uid: str) -> dict:
         "student_logged_in": True,
         "student_code": parts[1] if len(parts) > 1 else "",
     }
+
+
+def _require_teacher(request: Request) -> str:
+    uid, _ = get_session(request)
+    if not uid.startswith("oidc:"):
+        raise HTTPException(status_code=401, detail="teacher authentication required")
+    return uid
 
 
 # --- Índice federado de recursos (búsqueda unificada) ---
@@ -781,3 +794,42 @@ def student_login(payload: StudentLoginIn, request: Request, response: Response)
 def student_logout(response: Response) -> dict:
     delete_session_cookie(response)
     return {"ok": True}
+
+
+@app.post("/api/teacher/student-batches")
+def create_student_batch(payload: StudentBatchIn, request: Request) -> dict:
+    _require_teacher(request)
+    if rate_limited(_client_ip(request)):
+        raise HTTPException(status_code=429, detail="too many requests")
+    if not EDUTICTAC_ID_API_URL or not EDUTICTAC_ID_TEACHER_TOKEN:
+        raise HTTPException(status_code=503, detail="student credential service not configured")
+    count = max(1, min(120, int(payload.count or 0)))
+    pin_length = 6 if int(payload.pin_length or 4) == 6 else 4
+    try:
+        id_response = httpx.post(
+            f"{EDUTICTAC_ID_API_URL}/api/identities/batch",
+            json={"count": count, "pin_length": pin_length, "tenant_id": "recursos"},
+            headers={"Authorization": f"Bearer {EDUTICTAC_ID_TEACHER_TOKEN}"},
+            timeout=15,
+        )
+    except httpx.HTTPError as exc:
+        logger.warning("student batch id api failed: %s", exc.__class__.__name__)
+        raise HTTPException(status_code=502, detail="student identity service unavailable") from exc
+    if id_response.status_code >= 400:
+        raise HTTPException(status_code=502, detail="student identity service rejected request")
+    data = id_response.json()
+    identities = data.get("identities") if isinstance(data, dict) else None
+    group = data.get("group") if isinstance(data, dict) else {}
+    if not isinstance(identities, list):
+        raise HTTPException(status_code=502, detail="invalid student identity response")
+    return {
+        "batch_id": (group or {}).get("id", ""),
+        "credentials": [
+            {
+                "code": str(item.get("public_code", "")),
+                "pin": str(item.get("pin", "")),
+            }
+            for item in identities
+            if isinstance(item, dict) and item.get("public_code") and item.get("pin")
+        ],
+    }

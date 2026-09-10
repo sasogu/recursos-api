@@ -17,6 +17,7 @@ API REST (FastAPI + SQLite) para la PWA de Banc de recursos. Sustituye a Firebas
 - `GET  /api/auth/me` — estado de sesión OIDC
 - `POST /api/student/login` — inicia sesión con credencial pseudónima EduTicTac ID
 - `POST /api/student/logout` — cierra sesión de alumnado
+- `POST /api/teacher/student-batches` `{ count, pin_length }` — genera credenciales pseudónimas para profesorado autenticado
 - `POST /api/admin/resources/hide` `{ game_key }` — oculta un recurso del listado público
 - `GET  /api/resources` — índice federado de recursos (búsqueda + filtros)
 - `GET  /api/admin/sources` — estado de las fuentes de recursos (requiere admin)
@@ -44,6 +45,7 @@ OIDC_SCOPE=openid
 OIDC_ADMIN_SUBS=...
 OIDC_ADMIN_EMAILS=...
 EDUTICTAC_ID_API_URL=https://id-api.edutictac.es
+EDUTICTAC_ID_TEACHER_TOKEN=...
 ```
 
 Los secretos de OIDC y sesión se guardan fuera del repositorio, en el fichero de
