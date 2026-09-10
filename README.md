@@ -37,7 +37,7 @@ local `student:<codigo>:<identity_id>` para favoritos, valoraciones y reportes.
 Dependencia estable actual:
 
 ```txt
-edutictac-community @ git+https://git.edutictac.es/Edutictac/edutictac-community.git@v0.1.1
+edutictac-community @ git+https://git.edutictac.es/Edutictac/edutictac-community.git@v0.1.3
 ```
 
 Componentes reutilizados:
@@ -46,10 +46,12 @@ Componentes reutilizados:
 - `edutictac_community.ratelimit.RateLimiter` para límites en memoria.
 - `edutictac_community.session.SignedSession` para cookies HMAC.
 - `edutictac_community.oidc.OIDCClient` para Authentik/OIDC.
+- `edutictac_community.community.create_community_router` para favoritos,
+  valoraciones, reportes y ocultación admin, configurado con `game_key`.
 
-No se usa aún `create_community_router`: los endpoints públicos de la PWA usan
-`game_key`, mientras el router común trabaja con `item_key`. Migrarlo requiere
-un adaptador o configuración explícita para no romper clientes ni datos.
+El router común se monta con `key_field="game_key"`,
+`db_key_column="game_key"` y `admin_hide_path="/admin/resources/hide"`, de modo
+que la PWA y las tablas SQLite existentes no cambian.
 
 ## Despliegue
 
