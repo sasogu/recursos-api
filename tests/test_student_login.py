@@ -125,3 +125,35 @@ def test_cors_allows_edutictac_portal(tmp_path, monkeypatch):
     assert cors.kwargs["allow_origins"] == ["https://edutictac.es"]
     assert cors.kwargs["allow_credentials"] is True
     assert "POST" in cors.kwargs["allow_methods"]
+
+
+def test_auth_next_url_allows_portal_and_rejects_external(tmp_path, monkeypatch):
+    main = load_main(tmp_path, monkeypatch)
+
+    assert main.auth_next_url("https://edutictac.es/tauler-professorat.html") == (
+        "https://edutictac.es/tauler-professorat.html"
+    )
+    assert main.auth_next_url("https://evil.example/tauler-professorat.html") == "/"
+    assert main.auth_next_url("http://edutictac.es/tauler-professorat.html") == "/"
+
+
+def test_auth_callback_redirects_to_saved_next(tmp_path, monkeypatch):
+    main = load_main(tmp_path, monkeypatch)
+
+    monkeypatch.setattr(main.oidc, "enabled", lambda: True)
+    monkeypatch.setattr(
+        main.oidc,
+        "handle_callback",
+        lambda state, code, state_cookie: {"sub": "teacher-sub", "admin": False},
+    )
+    req = SimpleNamespace(
+        cookies={
+            main.oidc.OIDC_STATE_COOKIE: "state-cookie",
+            main.AUTH_NEXT_COOKIE: "https://edutictac.es/tauler-professorat.html",
+        },
+        client=SimpleNamespace(host="127.0.0.1"),
+    )
+
+    response = main.auth_callback(req, code="code", state="state")
+
+    assert response.headers["location"] == "https://edutictac.es/tauler-professorat.html"

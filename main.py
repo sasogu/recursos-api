@@ -36,7 +36,7 @@ from edutictac_community.community import Identity, create_community_router
 from edutictac_community.db import connect as _db_connect
 from edutictac_community.ratelimit import RateLimiter
 from edutictac_community.session import SignedSession
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
@@ -49,9 +49,11 @@ from app.models import Resource
 DB_PATH = os.environ.get("RECURSOS_DB", "/var/lib/recursos-api/recursos.db")
 SESSION_SECRET = os.environ.get("RECURSOS_SECRET", "")
 SESSION_COOKIE = "recursos_session"
+AUTH_NEXT_COOKIE = "recursos_auth_next"
 COOKIE_SECURE = os.environ.get("RECURSOS_COOKIE_SECURE", "1").lower() not in {"0", "false", "no"}
 EDUTICTAC_ID_API_URL = os.environ.get("EDUTICTAC_ID_API_URL", "").rstrip("/")
 EDUTICTAC_ID_TEACHER_TOKEN = os.environ.get("EDUTICTAC_ID_TEACHER_TOKEN", "")
+ALLOWED_AUTH_NEXT_HOSTS = {"edutictac.es", "recursos.edutictac.es"}
 
 RATE_WINDOW = 60
 RATE_MAX = 60
@@ -182,6 +184,40 @@ def set_session_cookie(response: Response, value: str, max_age: int) -> None:
         samesite="lax",
         path="/",
         max_age=max_age,
+    )
+
+
+def auth_next_url(raw: str) -> str:
+    value = (raw or "").strip()
+    if not value:
+        return "/"
+    try:
+        parsed = urllib.parse.urlparse(value)
+    except ValueError:
+        return "/"
+    if parsed.scheme != "https" or parsed.netloc not in ALLOWED_AUTH_NEXT_HOSTS:
+        return "/"
+    return urllib.parse.urlunparse((parsed.scheme, parsed.netloc, parsed.path or "/", "", parsed.query, ""))
+
+
+def set_auth_next_cookie(response: Response, value: str) -> None:
+    response.set_cookie(
+        AUTH_NEXT_COOKIE,
+        value,
+        httponly=True,
+        secure=COOKIE_SECURE,
+        samesite="lax",
+        path="/api/auth",
+        max_age=600,
+    )
+
+
+def delete_auth_next_cookie(response: Response) -> None:
+    response.delete_cookie(
+        AUTH_NEXT_COOKIE,
+        path="/api/auth",
+        secure=COOKIE_SECURE,
+        samesite="lax",
     )
 
 
@@ -530,15 +566,17 @@ def admin_sources(request: Request) -> dict:
 # --- OIDC (Authentik / EduTicTac Commons) ---
 
 @app.get("/api/auth/login")
-def auth_login() -> RedirectResponse:
+def auth_login(next_url: str = Query("", alias="next")) -> RedirectResponse:
     if not oidc.enabled():
         raise HTTPException(status_code=503, detail="oidc not configured")
     url, state_cookie = oidc.build_login_url()
+    return_to = auth_next_url(next_url)
     response = RedirectResponse(url)
     response.set_cookie(
         oidc.OIDC_STATE_COOKIE, state_cookie,
         httponly=True, secure=COOKIE_SECURE, samesite="lax", path="/api/auth", max_age=600,
     )
+    set_auth_next_cookie(response, return_to)
     return response
 
 
@@ -557,7 +595,8 @@ def auth_callback(request: Request, code: str = "", state: str = "") -> Redirect
 
     uid = f"oidc:{info['sub']}"
     admin = bool(info["admin"])
-    response = RedirectResponse("/")
+    return_to = auth_next_url(request.cookies.get(AUTH_NEXT_COOKIE, ""))
+    response = RedirectResponse(return_to)
     set_session_cookie(response, make_session(uid, admin=admin), 60 * 60 * 24 * 30)
     response.delete_cookie(
         oidc.OIDC_STATE_COOKIE,
@@ -565,6 +604,7 @@ def auth_callback(request: Request, code: str = "", state: str = "") -> Redirect
         secure=COOKIE_SECURE,
         samesite="lax",
     )
+    delete_auth_next_cookie(response)
     return response
 
 
