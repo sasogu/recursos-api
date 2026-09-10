@@ -105,13 +105,6 @@ python -m app.cli sources
 
 Tests: `python -m pytest tests/` (requereix `httpx`, `defusedxml`, `pytest`).
 
-## Resumen en castellano
-
-Backend FastAPI del Banc de recursos. Usa `edutictac-community v0.1.3` para
-SQLite, rate limit, cookies, OIDC y el router común de favoritos, valoraciones
-y avisos, configurado con `game_key` para mantener la compatibilidad con la PWA
-y la base de datos existente.
-
 ## Llicència
 
 GNU Affero General Public License v3.0 (AGPL-3.0).
