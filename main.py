@@ -37,6 +37,7 @@ from pathlib import Path
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
@@ -59,6 +60,14 @@ _rate: dict[str, deque] = defaultdict(deque)
 
 app = FastAPI(title="Bibliojocs API")
 logger = logging.getLogger("recursos_api")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://edutictac.es"],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "Accept"],
+)
 
 
 def _ensure_dir() -> None:

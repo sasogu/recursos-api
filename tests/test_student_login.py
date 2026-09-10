@@ -1,8 +1,13 @@
 import importlib
+import sys
 from http.cookies import SimpleCookie
+from pathlib import Path
 from types import SimpleNamespace
 
 from fastapi import Response
+from fastapi.middleware.cors import CORSMiddleware
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 
 class FakeIdResponse:
@@ -111,3 +116,12 @@ def test_teacher_can_generate_student_batch(tmp_path, monkeypatch):
             "timeout": 15,
         }
     ]
+
+
+def test_cors_allows_edutictac_portal(tmp_path, monkeypatch):
+    main = load_main(tmp_path, monkeypatch)
+    cors = next(item for item in main.app.user_middleware if item.cls is CORSMiddleware)
+
+    assert cors.kwargs["allow_origins"] == ["https://edutictac.es"]
+    assert cors.kwargs["allow_credentials"] is True
+    assert "POST" in cors.kwargs["allow_methods"]
