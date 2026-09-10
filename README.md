@@ -1,65 +1,65 @@
 # Recursos API
 
-API REST (FastAPI + SQLite) para la PWA de Banc de recursos. Sustituye a Firebase
-(Firestore + Authentication, proyecto `edubibliojocs`) desde 2026-09.
+API REST (FastAPI + SQLite) per a la PWA del Banc de recursos. Substitueix
+Firebase (Firestore + Authentication, projecte `edubibliojocs`) des de 2026-09.
 
-Usa `edutictac-community` como núcleo común para conexión SQLite, rate limit,
-cookies firmadas y cliente OIDC. La lógica propia de Banc de recursos
-(favoritos, valoraciones, reportes e índice federado) sigue en este servicio.
+Usa `edutictac-community` com a nucli comú per a connexió SQLite, rate limit,
+cookies firmades, client OIDC i router de comunitat. La lògica pròpia del Banc
+de recursos (índex federat i integracions educatives) continua en aquest servei.
 
 ## Endpoints
 
 - `GET  /api/health`
-- `GET  /api/preferences` — favoritos, valoraciones, reportes, resúmenes agregados y flag admin.
+- `GET  /api/preferences` - favorits, valoracions, avisos, resums agregats i flag admin.
 - `POST /api/favorites/toggle` `{ game_key }`
-- `POST /api/ratings` `{ game_key, value }` (con lógica de toggle 1-5)
-- `POST /api/reports` `{ game_key }` (actividad rota)
+- `POST /api/ratings` `{ game_key, value }` (amb lògica de toggle 1-5)
+- `POST /api/reports` `{ game_key }` (activitat trencada)
 - `GET  /api/submissions`
 - `POST /api/submissions` `{ title, url, notes, area, language, name }`
-- `GET  /api/auth/login` — inicia sesión con Authentik
-- `GET  /api/auth/logout` — cierra sesión local
-- `GET  /api/auth/me` — estado de sesión OIDC
-- `POST /api/student/login` — inicia sesión con credencial pseudónima EduTicTac ID
-- `POST /api/student/logout` — cierra sesión de alumnado
-- `POST /api/teacher/student-batches` `{ count, pin_length }` — genera credenciales pseudónimas para profesorado autenticado
-- `POST /api/admin/resources/hide` `{ game_key }` — oculta un recurso del listado público
-- `GET  /api/resources` — índice federado de recursos (búsqueda + filtros)
-- `GET  /api/admin/sources` — estado de las fuentes de recursos (requiere admin)
+- `GET  /api/auth/login` - inicia sessió amb Authentik
+- `GET  /api/auth/logout` - tanca sessió local
+- `GET  /api/auth/me` - estat de sessió OIDC
+- `POST /api/student/login` - inicia sessió amb credencial pseudònima EduTicTac ID
+- `POST /api/student/logout` - tanca sessió d'alumnat
+- `POST /api/teacher/student-batches` `{ count, pin_length }` - genera credencials pseudònimes per a professorat autenticat
+- `POST /api/admin/resources/hide` `{ game_key }` - oculta un recurs del llistat públic
+- `GET  /api/resources` - índex federat de recursos (cerca + filtres)
+- `GET  /api/admin/sources` - estat de les fonts de recursos (requereix admin)
 
-Identidad anónima por cookie firmada (HMAC, sin Google). El modo admin se
-activa al iniciar sesión con Authentik si el correo OIDC figura en
-`OIDC_ADMIN_EMAILS`. El alumnado puede iniciar sesión con una credencial
-pseudónima EduTicTac ID (`public_code + PIN`); el backend solo guarda la sesión
-local `student:<codigo>:<identity_id>` para favoritos, valoraciones y reportes.
+Identitat anònima per cookie firmada (HMAC, sense Google). El mode admin
+s'activa en iniciar sessió amb Authentik si el correu OIDC figura en
+`OIDC_ADMIN_EMAILS`. L'alumnat pot iniciar sessió amb una credencial pseudònima
+EduTicTac ID (`public_code + PIN`); el backend només guarda la sessió local
+`student:<codi>:<identity_id>` per a favorits, valoracions i avisos.
 
-## Núcleo común
+## Nucli comú
 
-Dependencia estable actual:
+Dependència estable actual:
 
 ```txt
 edutictac-community @ git+https://git.edutictac.es/Edutictac/edutictac-community.git@v0.1.3
 ```
 
-Componentes reutilizados:
+Components reutilitzats:
 
-- `edutictac_community.db.connect` para SQLite con WAL.
-- `edutictac_community.ratelimit.RateLimiter` para límites en memoria.
-- `edutictac_community.session.SignedSession` para cookies HMAC.
-- `edutictac_community.oidc.OIDCClient` para Authentik/OIDC.
-- `edutictac_community.community.create_community_router` para favoritos,
-  valoraciones, reportes y ocultación admin, configurado con `game_key`.
+- `edutictac_community.db.connect` per a SQLite amb WAL.
+- `edutictac_community.ratelimit.RateLimiter` per a límits en memòria.
+- `edutictac_community.session.SignedSession` per a cookies HMAC.
+- `edutictac_community.oidc.OIDCClient` per a Authentik/OIDC.
+- `edutictac_community.community.create_community_router` per a favorits,
+  valoracions, avisos i ocultació admin, configurat amb `game_key`.
 
-El router común se monta con `key_field="game_key"`,
-`db_key_column="game_key"` y `admin_hide_path="/admin/resources/hide"`, de modo
-que la PWA y las tablas SQLite existentes no cambian.
+El router comú es munta amb `key_field="game_key"`,
+`db_key_column="game_key"` i `admin_hide_path="/admin/resources/hide"`, de
+manera que la PWA i les taules SQLite existents no canvien.
 
-## Despliegue
+## Desplegament
 
-Código en `/opt/recursos-api`, servicio systemd `recursos-api.service`
-(uvicorn `127.0.0.1:8004`), expuesto en `recursos.edutictac.es/api/`.
-Variables de entorno en `/etc/recursos-api.env`:
+Codi en `/opt/recursos-api`, servei systemd `recursos-api.service`
+(uvicorn `127.0.0.1:8004`), exposat en `recursos.edutictac.es/api/`.
+Variables d'entorn en `/etc/recursos-api.env`:
 
-```
+```txt
 RECURSOS_SECRET=...
 RECURSOS_DB=/var/lib/recursos-api/recursos.db
 OIDC_ISSUER=https://id.edutictac.es/application/o/<slug>/
@@ -73,38 +73,45 @@ EDUTICTAC_ID_API_URL=http://127.0.0.1:8005
 EDUTICTAC_ID_TEACHER_TOKEN=...
 ```
 
-Los secretos de OIDC y sesión se guardan fuera del repositorio, en el fichero de
-entorno del servicio.
+Els secrets d'OIDC i sessió es guarden fora del repositori, en el fitxer
+d'entorn del servei.
 
-## Datos migrados
+## Dades migrades
 
-`seed.json` contiene los datos exportados de Firestore el 2026-09-04:
-`ratingSummary` (11), `brokenReports` (28) y `submissions` (1). Se insertan en
-la primera inicialización de la base de datos (si la tabla está vacía).
+`seed.json` conté les dades exportades de Firestore el 2026-09-04:
+`ratingSummary` (11), `brokenReports` (28) i `submissions` (1). S'insereixen en
+la primera inicialització de la base de dades (si la taula està buida).
 
-## Licencia
+## Índex federat de recursos
 
-GNU Affero General Public License v3.0 (AGPL-3.0).
+A més de favorits/valoracions, aquest backend allotja l'índex federat de
+recursos educatius oberts que alimentarà `recursos.edutictac.es`.
 
-## Índice federado de recursos (en desarrollo)
-
-Además de favoritos/valoraciones, este backend aloja el **índice federado de
-recursos educativos abiertos** que alimentará `recursos.edutictac.es`.
-
-- Proveedores: `jclic`, `h5p`, `scorm`, `eduhoot` (paquete `app/providers/`).
-- Modelo común `Resource` + `SyncRun` (SQLite, tablas `resources` y `sync_runs`).
-- CLI de sincronización:
+- Proveïdors: `jclic`, `h5p`, `scorm`, `eduhoot` (paquet `app/providers/`).
+- Model comú `Resource` + `SyncRun` (SQLite, taules `resources` i `sync_runs`).
+- CLI de sincronització:
 
 ```bash
 python -m app.cli sync jclic|h5p|scorm|eduhoot|all
-python -m app.cli sync scorm --url https://.../paquete.zip
+python -m app.cli sync scorm --url https://.../paquet.zip
 python -m app.cli stats
 python -m app.cli sources
 ```
 
-- Búsqueda unificada en `GET /api/resources` con filtros (`q`, `provider`,
+- Cerca unificada en `GET /api/resources` amb filtres (`q`, `provider`,
   `format`, `subject`, `stage`, `language`, `license`, `license_known`).
-- Documentación completa y fuentes verificadas: ver
-  `docs/resource-indexers.md` en el repositorio del frontend (`sasogu/recursos`).
+- Documentació completa i fonts verificades: vegeu
+  `docs/resource-indexers.md` en el repositori del frontend (`sasogu/recursos`).
 
-Tests: `python -m pytest tests/` (requiere `httpx`, `defusedxml`, `pytest`).
+Tests: `python -m pytest tests/` (requereix `httpx`, `defusedxml`, `pytest`).
+
+## Resumen en castellano
+
+Backend FastAPI del Banc de recursos. Usa `edutictac-community v0.1.3` para
+SQLite, rate limit, cookies, OIDC y el router común de favoritos, valoraciones
+y avisos, configurado con `game_key` para mantener la compatibilidad con la PWA
+y la base de datos existente.
+
+## Llicència
+
+GNU Affero General Public License v3.0 (AGPL-3.0).
