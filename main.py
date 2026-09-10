@@ -287,6 +287,10 @@ class StudentBatchIn(BaseModel):
     pin_length: int = 4
 
 
+class PinRegenerateIn(BaseModel):
+    pin_length: int = 4
+
+
 # --- Endpoints ---
 
 @app.get("/api/health")
@@ -726,3 +730,51 @@ def student_summary(request: Request) -> dict:
     if not isinstance(data, dict):
         raise HTTPException(status_code=502, detail="invalid student identity response")
     return data
+
+
+@app.get("/api/teacher/student-identities")
+def student_identities(request: Request) -> dict:
+    _require_teacher(request)
+    if not EDUTICTAC_ID_API_URL or not EDUTICTAC_ID_TEACHER_TOKEN:
+        raise HTTPException(status_code=503, detail="student credential service not configured")
+    try:
+        id_response = httpx.get(
+            f"{EDUTICTAC_ID_API_URL}/api/teacher/identities",
+            headers={"Authorization": f"Bearer {EDUTICTAC_ID_TEACHER_TOKEN}"},
+            timeout=10,
+        )
+    except httpx.HTTPError as exc:
+        logger.warning("student identities id api failed: %s", exc.__class__.__name__)
+        raise HTTPException(status_code=502, detail="student identity service unavailable") from exc
+    if id_response.status_code >= 400:
+        raise HTTPException(status_code=502, detail="student identity service rejected request")
+    data = id_response.json()
+    if not isinstance(data, dict) or not isinstance(data.get("identities"), list):
+        raise HTTPException(status_code=502, detail="invalid student identity response")
+    return data
+
+
+@app.post("/api/teacher/student-identities/{identity_id}/regenerate-pin")
+def regenerate_student_pin(identity_id: str, payload: PinRegenerateIn, request: Request) -> dict:
+    _require_teacher(request)
+    if not EDUTICTAC_ID_API_URL or not EDUTICTAC_ID_TEACHER_TOKEN:
+        raise HTTPException(status_code=503, detail="student credential service not configured")
+    safe_pin_length = 6 if int(payload.pin_length or 4) == 6 else 4
+    try:
+        id_response = httpx.post(
+            f"{EDUTICTAC_ID_API_URL}/api/identities/{identity_id}/regenerate-pin",
+            params={"pin_length": safe_pin_length},
+            headers={"Authorization": f"Bearer {EDUTICTAC_ID_TEACHER_TOKEN}"},
+            timeout=10,
+        )
+    except httpx.HTTPError as exc:
+        logger.warning("student regenerate pin id api failed: %s", exc.__class__.__name__)
+        raise HTTPException(status_code=502, detail="student identity service unavailable") from exc
+    if id_response.status_code == 404:
+        raise HTTPException(status_code=404, detail="student identity not found")
+    if id_response.status_code >= 400:
+        raise HTTPException(status_code=502, detail="student identity service rejected request")
+    data = id_response.json()
+    if not isinstance(data, dict) or not data.get("id") or not data.get("pin"):
+        raise HTTPException(status_code=502, detail="invalid student identity response")
+    return {"id": str(data["id"]), "pin": str(data["pin"])}

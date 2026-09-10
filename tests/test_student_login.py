@@ -47,6 +47,25 @@ class FakeSummaryResponse:
         }
 
 
+class FakeIdentitiesResponse:
+    status_code = 200
+
+    def json(self):
+        return {
+            "identities": [
+                {"id": "ident-1", "public_code": "K7P", "active": True},
+                {"id": "ident-2", "public_code": "M8Q", "active": True},
+            ]
+        }
+
+
+class FakeRegeneratePinResponse:
+    status_code = 200
+
+    def json(self):
+        return {"id": "ident-1", "pin": "4321"}
+
+
 def load_main(tmp_path, monkeypatch):
     monkeypatch.setenv("RECURSOS_DB", str(tmp_path / "recursos.db"))
     monkeypatch.setenv("RECURSOS_SECRET", "test-secret")
@@ -150,6 +169,60 @@ def test_teacher_can_read_student_summary(tmp_path, monkeypatch):
     assert calls == [
         {
             "url": "https://id-api.example.test/api/teacher/summary",
+            "headers": {"Authorization": "Bearer teacher-secret"},
+            "timeout": 10,
+        }
+    ]
+
+
+def test_teacher_can_list_student_identities(tmp_path, monkeypatch):
+    main = load_main(tmp_path, monkeypatch)
+    monkeypatch.setattr(main, "EDUTICTAC_ID_TEACHER_TOKEN", "teacher-secret")
+    calls = []
+
+    def fake_get(url, headers=None, timeout=None):
+        calls.append({"url": url, "headers": headers, "timeout": timeout})
+        return FakeIdentitiesResponse()
+
+    monkeypatch.setattr(main.httpx, "get", fake_get)
+    teacher_cookie = main.make_session("oidc:teacher-sub", admin=False)
+    result = main.student_identities(
+        SimpleNamespace(cookies={main.SESSION_COOKIE: teacher_cookie}, client=SimpleNamespace(host="127.0.0.1")),
+    )
+
+    assert [item["public_code"] for item in result["identities"]] == ["K7P", "M8Q"]
+    assert calls == [
+        {
+            "url": "https://id-api.example.test/api/teacher/identities",
+            "headers": {"Authorization": "Bearer teacher-secret"},
+            "timeout": 10,
+        }
+    ]
+
+
+def test_teacher_can_regenerate_student_pin(tmp_path, monkeypatch):
+    main = load_main(tmp_path, monkeypatch)
+    monkeypatch.setattr(main, "EDUTICTAC_ID_TEACHER_TOKEN", "teacher-secret")
+    calls = []
+
+    def fake_post(url, json=None, params=None, headers=None, timeout=None):
+        calls.append({"url": url, "json": json, "params": params, "headers": headers, "timeout": timeout})
+        return FakeRegeneratePinResponse()
+
+    monkeypatch.setattr(main.httpx, "post", fake_post)
+    teacher_cookie = main.make_session("oidc:teacher-sub", admin=False)
+    result = main.regenerate_student_pin(
+        "ident-1",
+        main.PinRegenerateIn(pin_length=4),
+        SimpleNamespace(cookies={main.SESSION_COOKIE: teacher_cookie}, client=SimpleNamespace(host="127.0.0.1")),
+    )
+
+    assert result == {"id": "ident-1", "pin": "4321"}
+    assert calls == [
+        {
+            "url": "https://id-api.example.test/api/identities/ident-1/regenerate-pin",
+            "json": None,
+            "params": {"pin_length": 4},
             "headers": {"Authorization": "Bearer teacher-secret"},
             "timeout": 10,
         }
