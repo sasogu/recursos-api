@@ -22,6 +22,7 @@ de recursos (índex federat i integracions educatives) continua en aquest servei
 - `POST /api/student/login` - inicia sessió amb credencial pseudònima EduTicTac ID
 - `POST /api/student/logout` - tanca sessió d'alumnat
 - `POST /api/teacher/student-batches` `{ count, pin_length }` - genera credencials pseudònimes per a professorat autenticat
+- `GET  /api/teacher/student-identities/by-code/{public_code}` - localitza una credencial activa per regenerar el PIN
 - `POST /api/admin/resources/hide` `{ game_key }` - oculta un recurs del llistat públic
 - `GET  /api/resources` - índex federat de recursos (cerca + filtres)
 - `GET  /api/admin/sources` - estat de les fonts de recursos (requereix admin)

@@ -59,6 +59,13 @@ class FakeIdentitiesResponse:
         }
 
 
+class FakeIdentityLookupResponse:
+    status_code = 200
+
+    def json(self):
+        return {"identity": {"id": "ident-1", "public_code": "K7P", "active": True}}
+
+
 class FakeRegeneratePinResponse:
     status_code = 200
 
@@ -194,6 +201,32 @@ def test_teacher_can_list_student_identities(tmp_path, monkeypatch):
     assert calls == [
         {
             "url": "https://id-api.example.test/api/teacher/identities",
+            "headers": {"Authorization": "Bearer teacher-secret"},
+            "timeout": 10,
+        }
+    ]
+
+
+def test_teacher_can_lookup_student_identity_by_code(tmp_path, monkeypatch):
+    main = load_main(tmp_path, monkeypatch)
+    monkeypatch.setattr(main, "EDUTICTAC_ID_TEACHER_TOKEN", "teacher-secret")
+    calls = []
+
+    def fake_get(url, headers=None, timeout=None):
+        calls.append({"url": url, "headers": headers, "timeout": timeout})
+        return FakeIdentityLookupResponse()
+
+    monkeypatch.setattr(main.httpx, "get", fake_get)
+    teacher_cookie = main.make_session("oidc:teacher-sub", admin=False)
+    result = main.student_identity_by_code(
+        "k-7p",
+        SimpleNamespace(cookies={main.SESSION_COOKIE: teacher_cookie}, client=SimpleNamespace(host="127.0.0.1")),
+    )
+
+    assert result["identity"]["id"] == "ident-1"
+    assert calls == [
+        {
+            "url": "https://id-api.example.test/api/teacher/identities/by-code/K7P",
             "headers": {"Authorization": "Bearer teacher-secret"},
             "timeout": 10,
         }
